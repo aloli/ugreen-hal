@@ -1,0 +1,5 @@
+= tests
+
+Emplacement prévu pour les tests automatisés (unitaires sur la logique de protocole — checksum, encodage des blocs SMBus — et, si possible, tests d'intégration sur matériel réel via CI auto-hébergée).
+
+Aucun test n'est encore présent : ce répertoire sera peuplé en parallèle du code de `src/cli/`, à partir du sprint 3.

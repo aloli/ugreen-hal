@@ -1,0 +1,63 @@
+= ugreen-hal
+:toc:
+:sectnums:
+
+Couche d'abstraction matérielle (*H*ardware *A*bstraction *L*ayer) pour porter les NAS UGREEN NASync (séries DXP) vers FreeBSD/ZFS, dans l'objectif à terme de contribuer à https://github.com/zvaultio[zVault] plutôt que de construire un firmware concurrent depuis zéro.
+
+[NOTE]
+====
+Ce dépôt est volontairement scopé étroitement : il ne s'agit pas de réécrire un firmware NAS complet, mais de documenter et porter le matériel spécifique UGREEN (LED de façade, capteurs, boutons, watchdog) que zVault, en tant que fork de TrueNAS CORE, ne connaît pas nativement. Le nom du dépôt reflète ce choix.
+====
+
+== Pourquoi ce projet
+
+UGOS, le firmware propriétaire livré sur les NAS UGREEN NASync, est basé sur Linux/Debian. Les objectifs de ce projet sont :
+
+* Remplacer UGOS par une pile FreeBSD + ZFS éprouvée, via une distribution existante (zVault, fork communautaire de TrueNAS CORE) plutôt qu'un développement from scratch.
+* Documenter précisément le matériel UGREEN (réseau, stockage, LED, boutons, supervision) à partir d'observations directes et reproductibles, pas de suppositions.
+* Porter les composants spécifiques UGREEN manquants sous FreeBSD (au premier chef : le contrôleur LED de façade/baies, piloté en SMBus).
+* Publier le résultat en open source, avec pour ambition finale une contribution amont vers zVault.
+
+== Matériel de référence
+
+Le développement et les tests sont effectués sur un *UGREEN NASync DXP2800* (Intel N100, 2 baies), choisi pour son support matériel plus simple que le DXP4800 Plus (pas de contrôleur réseau Aquantia AQC113 au pilote FreeBSD immature). Voir link:docs/hardware-notes.adoc[] pour le détail des relevés matériels.
+
+== État d'avancement
+
+Projet en phase de reconnaissance matérielle (sprint 0/1). Aucun code de portage n'a encore été testé sur matériel réel — le NAS de test est actuellement en attente de matériel réseau complémentaire (pont WiFi-Ethernet) pour permettre un accès réseau stable. Voir link:docs/journal.adoc[] pour le suivi détaillé.
+
+== Structure du dépôt
+
+[cols="1,3"]
+|===
+|Chemin |Contenu
+
+|`docs/hardware-notes.adoc`
+|Relevés matériels bruts, modèle par modèle (chipsets, bus, pilotes Linux observés, équivalents FreeBSD).
+
+|`docs/protocol-i2c-leds.adoc`
+|Spécification complète, rétro-documentée, du protocole SMBus du contrôleur LED UGREEN, avec squelette de portage FreeBSD.
+
+|`docs/journal.adoc`
+|Journal daté des observations, décisions et étapes franchies.
+
+|`src/cli/`
+|Utilitaires en espace utilisateur pour FreeBSD (à venir — sprint 3).
+
+|`scripts/`
+|Scripts d'accompagnement (sauvegarde, préparation de clé USB, etc.).
+
+|`tests/`
+|Tests automatisés (à venir).
+
+|`.github/workflows/ci.yml`
+|Intégration continue sous FreeBSD (via `vmactions/freebsd-vm`).
+|===
+
+== Licence
+
+BSD-2-Clause — voir link:LICENSE[].
+
+== Contribuer
+
+Voir link:CONTRIBUTING.adoc[].

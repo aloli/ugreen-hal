@@ -1,0 +1,5 @@
+= src/cli
+
+Emplacement prévu pour les utilitaires en espace utilisateur ciblant FreeBSD (ex. `ugreen-led-ctl`, portage du protocole documenté dans `../../docs/protocol-i2c-leds.adoc`).
+
+Aucun code n'est encore présent : le développement démarrera au sprint 3 du plan de projet, une fois le NAS de test accessible sous un environnement FreeBSD fonctionnel (zVault ou XigmaNAS).

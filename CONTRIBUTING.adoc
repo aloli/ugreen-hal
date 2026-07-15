@@ -1,0 +1,38 @@
+= Contribuer à ugreen-hal
+:toc:
+
+Merci de l'intérêt porté à ce projet. Ce document explique comment contribuer efficacement.
+
+== Philosophie du projet
+
+`ugreen-hal` n'est pas un firmware NAS complet : c'est une couche d'abstraction matérielle destinée, à terme, à être proposée en amont à https://github.com/zvaultio[zVault] (fork FreeBSD/ZFS de TrueNAS CORE). Toute contribution doit garder ce scope étroit à l'esprit : documenter et porter le matériel spécifique UGREEN, pas réinventer une distribution.
+
+== Exigence de rigueur sur les relevés matériels
+
+Le point différenciant de ce projet par rapport à la documentation UGREEN officielle est la précision vérifiable des informations. En conséquence :
+
+* Toute donnée ajoutée à `docs/hardware-notes.adoc` ou `docs/protocol-i2c-leds.adoc` doit provenir d'une observation directe (sortie de commande, journal de démarrage, photo de console, lecture de code source amont) — pas d'une supposition ou d'une extrapolation non vérifiée.
+* Les suppositions et pistes non confirmées doivent être clairement identifiées comme telles (section « à confirmer », « TODO », etc.), jamais présentées comme des faits.
+* Chaque relevé doit indiquer sa source et, si possible, sa date.
+
+== Format des documents
+
+Tous les documents de ce dépôt sont rédigés en AsciiDoc (`.adoc`). Merci de conserver ce format pour toute nouvelle documentation, y compris pour les journaux de bord et les notes techniques.
+
+== Signaler un problème ou proposer une piste
+
+Ouvrez une issue en décrivant :
+
+* Le modèle de NAS UGREEN concerné (ex. DXP2800, DXP4800 Plus).
+* L'observation ou le comportement constaté, avec la source (photo, log, commande).
+* Si pertinent, le composant FreeBSD concerné (pilote, framework) et son état amont (mergé, en review, absent).
+
+== Proposer du code
+
+* Le code de portage cible FreeBSD en priorité (le projet ne vise pas Linux).
+* Tout nouveau composant matériel (LED, capteur, bouton) doit être documenté dans `docs/hardware-notes.adoc` avant ou en même temps que le code qui l'exploite.
+* Les pull requests touchant au protocole SMBus du contrôleur LED doivent être validées sur matériel réel avant d'être considérées comme stables (voir le statut « TODO » explicite dans `docs/protocol-i2c-leds.adoc`).
+
+== Licence des contributions
+
+En contribuant, vous acceptez que votre contribution soit publiée sous licence BSD-2-Clause (voir `LICENSE`).

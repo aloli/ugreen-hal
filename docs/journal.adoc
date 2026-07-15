@@ -1,0 +1,44 @@
+= Journal du projet — ugreen-hal
+:toc:
+
+Ce journal consigne, par ordre chronologique, les décisions structurantes et les étapes franchies. Le détail technique des relevés matériels vit dans `hardware-notes.adoc` et `protocol-i2c-leds.adoc` ; ce document se concentre sur le fil du projet.
+
+== 2026-07-15 — Cadrage initial
+
+* Décision de cibler FreeBSD + ZFS plutôt que Linux, en rejetant explicitement TrueNAS SCALE (passé sous Linux).
+* Recherche de projets FreeBSD/ZFS existants à rejoindre plutôt que de repartir de zéro : identification de *zVault* (fork communautaire de TrueNAS CORE, FreeBSD + ZFS + middleware/webUI dérivés de TrueNAS) comme cible de contribution privilégiée, avec XigmaNAS gardé comme solution de repli.
+* Choix du NAS de test : *UGREEN NASync DXP2800* (Intel N100, 2 baies), préféré au DXP4800 Plus pour son support matériel plus simple (pas de contrôleur réseau Aquantia AQC113, dont le pilote FreeBSD est immature).
+* Nommage du dépôt en `ugreen-hal` pour signaler un scope volontairement étroit (portage matériel), mergeable dans zVault, plutôt qu'un firmware concurrent.
+* Classification du projet comme projet personnel plutôt que projet d'entreprise.
+
+== 2026-07-15 — Sprint 0 : matériel complémentaire
+
+* Identification du besoin en matériel de test : adaptateur USB-Ethernet de secours, support USB/SSD externe, disque de sauvegarde externe.
+* Constat de l'absence de réseau filaire au poste de travail (WiFi uniquement) : recherche d'un pont WiFi-vers-Ethernet.
+* Choix retenu : GL.iNet GL-SFT1200 (« Opal ») en mode Extender pour le pont réseau.
+* Évaluation de plusieurs solutions d'accès distant à l'écran du NAS (JetKVM, GL.iNet Comet GL-RM1, GL.iNet Comet Pro GL-RM10) ; achat du *GL.iNet Comet (GL-RM1)*, retenu pour son rapport prix/fonctionnalités (4K@30fps, Tailscale) malgré l'absence de WiFi intégré — compensée par le pont GL-SFT1200 déjà prévu.
+* Commande passée : livraison estimée à 5 jours.
+
+== 2026-07-15 — Premier relevé matériel (photos console HDMI)
+
+* Première série de photos du démarrage UGOS analysée : confirmation que la sortie HDMI expose bien la console noyau/systemd (pas seulement une interface applicative), validant a posteriori l'intérêt du KVM.
+* Relevés initiaux : identification DMI (DXP2800 V1.2 251215), réseau (`igc`, famille Intel I225/I226), stockage interne eMMC, contrôleur LED (chip ID `0xc5b2`, adresse SMBus `0x3a`, module `leds-mcu`), boutons (`ug-gpiokey`, GPIO), supervision matérielle (ITE IT8613).
+* Détail complet consigné dans `hardware-notes.adoc`.
+
+== 2026-07-15 — Second relevé matériel (reproductibilité)
+
+* Seconde série de photos analysée : chip ID I2C, adresse SMBus, chip watchdog et pilote boutons tous identiques au premier relevé — *reproductibilité confirmée*.
+* Informations complémentaires obtenues : chaîne de démarrage (GRUB 2.06, entrée unique `UGOSPRO-NAS`, splash UGREEN avant le menu), pilote `r8152` chargé au démarrage (même famille de puce que l'adaptateur USB-Ethernet de secours déjà retenu).
+
+== 2026-07-15 — Documentation complète du protocole LED (pendant l'attente de livraison)
+
+* Clonage et lecture du code source de référence `miskcoo/ugreen_leds_controller` (implémentation espace utilisateur, protocole déjà éprouvé sur DXP2800 selon le README amont).
+* Protocole entièrement documenté : bus SMBus I801, adresse esclave `0x3a`, format des blocs de lecture (11 octets, registre `0x81+ID`) et d'écriture (12 octets, registre `0x00+ID`), table des 5 sous-commandes (luminosité, couleur, on/off, clignotement, respiration), calcul de somme de contrôle.
+* Correction importante par rapport à une hypothèse initiale : la cible de portage FreeBSD la plus probable est la pile `smbus(4)`/`ichsmb(4)` (SMBus intégré au PCH Intel), pas `iic(4)` seul — cohérent avec l'usage exclusif de transactions SMBus block dans le code de référence.
+* Squelette de code C de portage FreeBSD rédigé (non testé, en attente de matériel).
+
+== Prochaines étapes
+
+* Réception du matériel réseau (pont GL-SFT1200 + KVM Comet GL-RM1), mise en service, connexion stable du NAS de test au réseau.
+* Sprint 1 : mise en place du dépôt `ugreen-hal` (ce dépôt), structure de base, CI FreeBSD.
+* Sprint 3 : premier test réel du protocole SMBus du contrôleur LED sur le DXP2800 sous FreeBSD/zVault.

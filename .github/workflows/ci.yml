@@ -1,0 +1,31 @@
+# CI — validation sous FreeBSD (via vmactions/freebsd-vm)
+#
+# STATUT : squelette. Ce workflow ne fait pour l'instant que valider la
+# syntaxe des documents AsciiDoc et préparer l'environnement FreeBSD pour
+# les futurs tests de src/cli/. À enrichir au sprint 1/3, une fois du code
+# effectif présent dans src/cli/ et tests/.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  freebsd-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and test on FreeBSD
+        uses: vmactions/freebsd-vm@v1
+        with:
+          usesh: true
+          prepare: |
+            pkg install -y asciidoctor
+          run: |
+            # TODO(sprint 1) : ajouter la compilation de src/cli/ une fois
+            # du code présent.
+            find docs -name '*.adoc' -exec asciidoctor --safe-mode=safe -o /dev/null {} \;
+            echo "OK : documents AsciiDoc valides."

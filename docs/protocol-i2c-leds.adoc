@@ -1,0 +1,218 @@
+= Protocole I2C/SMBus du contrôleur LED — UGREEN NASync
+:toc:
+:sectnums:
+
+[NOTE]
+====
+Statut de ce document : le protocole ci-dessous est désormais *documenté avec précision*, extrait du code source de référence `miskcoo/ugreen_leds_controller` (implémentation en espace utilisateur, `cli/i2c.cpp` et `cli/ugreen_leds.cpp`) et recoupé avec le README officiel de ce projet. Il n'a en revanche *pas encore été testé sous FreeBSD* — c'est l'objet du sprint 3 du plan de projet, dès que le NAS de test est disponible avec un environnement FreeBSD fonctionnel.
+====
+
+== Ce qui est confirmé par observation directe (DXP2800)
+
+À partir du journal de démarrage du noyau Linux d'UGOS (sprint 0, deux relevés concordants) :
+
+* Le contrôleur LED est vu par le noyau comme un périphérique sur le bus *SMBus I801* (contrôleur SMBus intégré au PCH Intel, périphérique PCI `0000:00:1f.4`, visible dans les journaux comme `i801_smbus`) — et non un bus I2C générique séparé. C'est une précision importante par rapport à la version précédente de ce document.
+* Chip ID détecté : `0xc5b2`.
+* Adresse esclave I2C/SMBus du contrôleur : `0x3a`.
+* Le module Linux qui le pilote côté UGOS s'appelle `leds-mcu` (`ug_led_driver_init`), mais le projet de référence utilisé ici pour le portage est l'implémentation *espace utilisateur* de `miskcoo/ugreen_leds_controller`, plus simple à porter vers FreeBSD qu'un module noyau Linux.
+* Modèle explicitement supporté par ce projet de référence : DXP2800 (voir ticket amont https://github.com/miskcoo/ugreen_leds_controller/issues/19).
+
+== Protocole (extrait du code de référence)
+
+=== Bus et adressage
+
+* Bus : SMBus I801 (`/dev/i2c-N` détecté sous Linux via `/sys/class/i2c-dev/*/device/name` commençant par `SMBus I801 adapter`).
+* Adresse esclave : `0x3a`.
+* Transactions utilisées : SMBus *block* read/write (`I2C_SMBUS_I2C_BLOCK_DATA` côté Linux), pas de simples transactions octet-à-octet.
+
+=== Identifiants de LED
+
+[cols="1,3"]
+|===
+|ID |LED
+
+|`0`
+|Indicateur d'alimentation (power)
+
+|`1`
+|Indicateur réseau (netdev)
+
+|`2`, `3`, ...
+|Indicateurs de disque « disk1 », « disk2 », etc. (jusqu'à `9` = disk8 sur les modèles 8 baies ; le DXP2800 n'utilisera vraisemblablement que `2` et `3`, à confirmer une fois des disques installés)
+|===
+
+=== Lecture d'état — bloc SMBus de 11 octets à l'adresse `0x81 + ID`
+
+[cols="1,3"]
+|===
+|Octet |Signification
+
+|`0x00`
+|État : 0 (éteint), 1 (allumé), 2 (clignotant), 3 (respiration/breath)
+
+|`0x01`
+|Luminosité
+
+|`0x02`-`0x04`
+|Couleur RGB (rouge, vert, bleu)
+
+|`0x05`-`0x06`
+|Durée totale d'un cycle blink/breath, en ms (poids fort puis poids faible)
+
+|`0x07`-`0x08`
+|Durée « allumé » dans un cycle blink/breath, en ms (poids fort puis poids faible)
+
+|`0x09`-`0x0a`
+|Somme de contrôle des octets `0x00`-`0x08` (poids fort puis poids faible)
+|===
+
+Exemple donné par le projet de référence (lecture brute via `i2cget`, illustrant un indicateur d'alimentation violet, clignotant, allumé 40 % du temps, luminosité 180/256) :
+
+[source,shell]
+----
+i2cget -y 0x01 0x3a 0x81 i 0x0b 0x02 0xb4 0xff 0x00 0xff 0x03 0xe8 0x01 0x90 0x04 0x30
+----
+
+=== Écriture d'état — bloc SMBus de 12 octets à l'adresse `0x00 + ID`
+
+[cols="1,3"]
+|===
+|Octet |Signification
+
+|`0x00`
+|Identifiant de la LED (doit être répété ici, en plus d'être l'adresse/commande SMBus elle-même)
+
+|`0x01`
+|Constante `0xa0`
+
+|`0x02`
+|Constante `0x01`
+
+|`0x03`, `0x04`
+|Constante `0x00`
+
+|`0x05`
+|Sous-commande : `1` = luminosité, `2` = couleur, `3` = on/off, `4` = clignotement, `5` = respiration
+
+|`0x06`-`0x09`
+|Jusqu'à 4 paramètres, selon la sous-commande (voir ci-dessous)
+
+|`0x0a`-`0x0b`
+|Somme de contrôle des octets `0x01`-`0x09` (poids fort puis poids faible)
+|===
+
+Paramètres selon la sous-commande :
+
+* *Luminosité* (`0x01`) : un seul paramètre, la luminosité (0-255).
+* *Couleur* (`0x02`) : trois paramètres, R puis G puis B.
+* *On/off* (`0x03`) : un seul paramètre, `0` ou `1`.
+* *Clignotement* (`0x04`) et *respiration* (`0x05`) : quatre paramètres — durée totale du cycle (poids fort, poids faible), puis durée « allumé » dans le cycle (poids fort, poids faible). Dans le code de référence, `t_high = t_on + t_off` (durée totale) et `t_low = t_on` (durée allumée), tous deux en millisecondes.
+
+=== Registre de statut de la dernière modification
+
+Lecture d'un octet à l'adresse `0x80` : renvoie `1` si la dernière écriture a réussi.
+
+== Conséquence pour le portage FreeBSD
+
+Point important corrigé par rapport à la version précédente de ce document : comme le contrôleur est sur le bus *SMBus I801* et que le projet de référence utilise explicitement des transactions *SMBus block* (pas de l'I2C générique), le point d'entrée FreeBSD le plus probable n'est pas `iic(4)` seul, mais la pile SMBus de FreeBSD :
+
+* Le contrôleur SMBus intégré au PCH Intel est pris en charge sous FreeBSD par le pilote `ichsmb(4)`, qui expose un bus `smbus(4)` généraliste, accessible en espace utilisateur via `/dev/smb0` (ou similaire) et l'API définie dans `<dev/smbus/smb.h>`.
+* FreeBSD expose des ioctls SMBus (transactions quick/byte/word/block) directement analogues aux transactions `I2C_SMBUS_I2C_BLOCK_DATA` utilisées par le code Linux de référence — la traduction du protocole ci-dessus devrait donc être directe, sans avoir besoin de reconstruire les trames à la main sur un bus I2C générique.
+* Reste à vérifier au sprint 3, sur le NAS réel sous FreeBSD/zVault : que `ichsmb(4)` détecte bien le contrôleur SMBus du DXP2800, et que les tailles de bloc (11 octets en lecture, 12 en écriture) sont acceptées telles quelles par l'implémentation FreeBSD du protocole SMBus block (certaines piles limitent strictement à 32 octets, ce qui est largement suffisant ici).
+
+== Squelette d'utilitaire FreeBSD (à valider au sprint 3)
+
+Le squelette ci-dessous remplace la version précédente (basée sur `iic(4)`) par une approche basée sur `smbus(4)`, cohérente avec la découverte ci-dessus. Il reste à valider sur le matériel réel — en particulier le chemin exact du device node, qui peut être `/dev/smb0` ou un autre index selon l'énumération des bus SMBus/I2C du DXP2800.
+
+[source,c]
+----
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <dev/smbus/smb.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+#define UGREEN_LED_SMB_ADDR   0x3a   /* confirmé, sprint 0 */
+#define UGREEN_LED_POWER      0
+#define UGREEN_LED_NETDEV     1
+#define UGREEN_LED_DISK1      2
+#define UGREEN_LED_DISK2      3
+
+static uint16_t
+checksum(const uint8_t *data, size_t n)
+{
+	uint32_t sum = 0;
+	for (size_t i = 0; i < n; i++)
+		sum += data[i];
+	return (uint16_t)sum;
+}
+
+/* Allume/éteint une LED — sous-commande 0x03, un seul paramètre.
+ * TODO (sprint 3.2) : confirmer le device node SMBus exact et la
+ * disponibilité de SMB_WRITE_BLOCK sous FreeBSD pour ce contrôleur
+ * avant tout envoi réel sur le matériel. */
+int
+ugreen_led_set_onoff(int fd, uint8_t led_id, uint8_t on)
+{
+	uint8_t block[12];
+
+	block[0] = led_id;
+	block[1] = 0xa0;
+	block[2] = 0x01;
+	block[3] = 0x00;
+	block[4] = 0x00;
+	block[5] = 0x03;      /* sous-commande : on/off */
+	block[6] = on ? 1 : 0;
+	block[7] = 0x00;
+	block[8] = 0x00;
+	block[9] = 0x00;
+
+	uint16_t sum = checksum(block + 1, 9);  /* octets 0x01-0x09 */
+	block[10] = (sum >> 8) & 0xff;
+	block[11] = sum & 0xff;
+
+	struct smbcmd cmd;
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.cmd = led_id;        /* adresse "commande" SMBus = 0x00 + ID */
+	cmd.wbuf = block;
+	cmd.wcount = sizeof(block);
+
+	/* NOTE : l'ioctl exact (SMB_WRITE_BLOCK ou équivalent) et la
+	 * structure smbcmd doivent être confirmés dans <dev/smbus/smb.h>
+	 * de la version de FreeBSD ciblée — à valider au sprint 3.1/3.2. */
+	return ioctl(fd, SMB_WRITE_BLOCK, &cmd);
+}
+
+int
+main(void)
+{
+	int fd = open("/dev/smb0", O_RDWR);
+	if (fd < 0) {
+		perror("open /dev/smb0");
+		return 1;
+	}
+
+	/* Premier test prudent (sprint 3.3) : une seule LED, un seul
+	 * changement d'état, observation physique du résultat avant
+	 * toute automatisation. */
+	ugreen_led_set_onoff(fd, UGREEN_LED_POWER, 1);
+
+	close(fd);
+	return 0;
+}
+----
+
+== Journal des tentatives
+
+[cols="1,4"]
+|===
+|Date |Observation
+
+|2026-07-15
+|Relevé initial du chip ID, de l'adresse SMBus et du nom de module côté Linux (voir `hardware-notes.adoc`). Protocole encore non documenté à ce stade.
+
+|2026-07-15 (suite, pendant l'attente de livraison du matériel réseau)
+|Étude complète du code source de référence `miskcoo/ugreen_leds_controller` (`cli/i2c.cpp`, `cli/ugreen_leds.cpp`) et de son README. Protocole entièrement documenté : bus SMBus I801, adresse `0x3a`, format des blocs de lecture (11 octets, `0x81+ID`) et d'écriture (12 octets, `0x00+ID`), table des sous-commandes. Correction importante : la cible FreeBSD la plus probable est `smbus(4)`/`ichsmb(4)`, pas `iic(4)` seul. Aucun test réel sur FreeBSD encore tenté — nécessite le NAS de test et un environnement FreeBSD fonctionnel (sprint 1/3).
+|===

@@ -1,0 +1,170 @@
+= Relevés matériels — UGREEN NASync
+:toc:
+:sectnums:
+
+Ce document consigne, modèle par modèle, les relevés matériels effectués physiquement (numéros de puce, adresses de bus, pilotes Linux déjà chargés par UGOS). Contrairement à la documentation UGREEN officielle, ces informations sont volontairement précises et vérifiables : chaque ligne provient d'une observation directe (photo de console, sortie de commande), pas d'une supposition.
+
+== DXP2800
+
+=== Identification
+
+[cols="2,3"]
+|===
+|Champ |Valeur
+
+|DMI Vendor
+|American Megatrends International, LLC. (BIOS AMI standard)
+
+|DMI Product Name
+|DXP2800
+
+|DMI Version (révision carte)
+|DXP2800 V1.2 251215
+
+|Hostname par défaut sous UGOS
+|DXP2800-2CFF
+
+|Système UGOS
+|Debian GNU/Linux 12 (bookworm), systemd 252.33-1~deb12u1, architecture x86-64
+|===
+
+=== Réseau
+
+[cols="2,3"]
+|===
+|Champ |Valeur
+
+|Pilote Linux
+|`igc` (famille Intel I225/I226)
+
+|Bus
+|`0000:02:00.0`, PCIe 5.0 GT/s x1 (4 Gb/s de bande passante disponible)
+
+|Pilote FreeBSD équivalent
+|`igc(4)`, mainline, déjà présent dans le noyau GENERIC — aucun portage nécessaire
+|===
+
+=== Stockage interne
+
+[cols="2,3"]
+|===
+|Champ |Valeur
+
+|Type
+|eMMC (pas de SSD dédié, à la différence du DXP4800 Plus)
+
+|Détails
+|`mmc0`, carte HS200, `MMC32G`, 29,2 Gio
+
+|Partitionnement observé
+|`p1`, `p2`, `p3`, `p4`, `p5`, `p6`, `p7`, `p8`, `p128` (+ `boot0`, `boot1`, `rpmb`)
+
+|Partitions identifiées au boot
+|`mmcblk0p1` : FAT (« Volume was not properly unmounted » au boot observé) +
+`mmcblk0p3` : ext4, point de montage racine temporaire `/tmp/factory` +
+`mmcblk0p6` : ext4, label `UGREEN-SERVICE` +
+`mmcblk0p7` : ext4, label `USER-DATA` +
+`mmcblk0p5` : utilisé comme swap (`zram`, voir plus bas)
+|===
+
+=== Contrôleur LED (façade et baies)
+
+[cols="2,3"]
+|===
+|Champ |Valeur
+
+|Bus
+|I2C (`i2c_dev`, « i2c /dev entries driver »)
+
+|Chip ID détecté
+|`0xc5b2` (ligne `leds_ugreen_detect:i2c chipid:c5b2`)
+
+|Adresse I2C
+|`0x3a` (ligne `leds_ugreen_detect:i2c addr:0x3a`, confirmée par `client addr:3a`)
+
+|Module/pilote Linux
+|`leds-mcu` (`ug_led_driver_init`)
+
+|Produit détecté par le pilote
+|`DXP2800` (ligne `leds_ugreen_probe product name is :DXP2800`)
+
+|Référence externe
+|Cohérent avec le protocole déjà documenté par `miskcoo/ugreen_leds_controller` (https://github.com/miskcoo/ugreen_leds_controller) pour ce modèle — à utiliser comme base de portage vers la pile `smbus(4)`/`ichsmb(4)` sous FreeBSD (voir `protocol-i2c-leds.adoc` pour le détail complet du protocole et la justification de ce choix).
+|===
+
+=== Boutons
+
+[cols="2,3"]
+|===
+|Champ |Valeur
+
+|Mécanisme
+|Piloté par plateforme GPIO, *pas* par I2C
+
+|Ligne observée
+|`input: ug gpiokey as /devices/platform/ug-gpiokey.0/input/input9`
+
+|Conséquence FreeBSD
+|Orienter le portage vers `gpio(4)` plutôt que `iic(4)` pour ce composant.
+|===
+
+=== Supervision matérielle (watchdog, buzzer, capteurs)
+
+[cols="2,3"]
+|===
+|Champ |Valeur
+
+|Chip
+|ITE IT8613, révision 8613.12 (ligne `Found chip IT8613 rev 8613. 12`)
+
+|Watchdog
+|Exposé sous Linux comme « IT87 WDT », `/dev/watchdog0`, timeout matériel 20 minutes
+
+|Buzzer
+|Ligne `DXP2800 SATA&beep init` observée pendant le chargement du pilote UGREEN
+
+|Statut FreeBSD
+|Le framework `superio(4)` reconnaît déjà l'identifiant IT8613 (review Phabricator D39969, acceptée). Le pilote complet de supervision (`it8613hwm(4)`) existe en review (D39970/D39971) mais n'est *pas* intégré : statut « Changes Planned », bloqué par un conflit avec le code thermique ACPI. C'est une piste de contribution amont directe plutôt qu'un développement from scratch.
+|===
+
+=== Services UGOS observés (contexte, non prioritaire pour le portage)
+
+Pour mémoire, UGOS fait tourner un ensemble de services propriétaires au-dessus de ce Debian : `ugdriver.service`, `humonitor.service`, `ugbus.service` (bus de message interne), `storage_serv`, `discovery_serv`, `domain_tool` (en échec au démarrage observé), `taskmgr_serv`, `thumb_serv`, `gateway_serv`, `transcode_serv`, `entry_serv`/`startx` (interface graphique X11), ainsi que PostgreSQL (`ugreen-psql`) et Redis en interne, nginx en reverse proxy. Ces services ne concernent pas le projet (ils disparaissent avec UGOS), mais expliquent pourquoi le journal de démarrage est aussi chargé.
+
+=== Chaîne de démarrage (bootloader)
+
+[cols="2,3"]
+|===
+|Champ |Valeur
+
+|Bootloader
+|GNU GRUB version 2.06-3~deb11u4 (paquet issu de Debian 11, alors que l'userland est du Debian 12 « bookworm » — probablement un héritage de l'image de base, sans conséquence directe)
+
+|Entrée de boot observée
+|Une seule entrée, nommée `UGOSPRO-NAS` (label générique de la ligne de firmware, indépendant du hostname réseau `DXP2800-2CFF`)
+
+|Écran affiché avant GRUB
+|Un splash avec le logo « UGREEN » s'affiche avant le menu GRUB — confirme que la sortie HDMI est active dès les toutes premières étapes du démarrage, cohérent avec les conclusions déjà tirées sur le firmware AMI standard
+
+|Conséquence pour le projet
+|GRUB étant un bootloader standard (pas un chargeur propriétaire), il sera possible, en phase 4 (remplacement du firmware interne), d'envisager d'y ajouter une entrée pour FreeBSD/zVault plutôt que de devoir remplacer tout le mécanisme de démarrage — à confirmer le moment venu.
+|===
+
+=== Autres observations mineures
+
+* Pilote `r8152`/`r8152-cfgselector` (USB-Ethernet Realtek) chargé au démarrage, alors qu'aucun adaptateur externe n'était branché à ce moment — probablement un chargement générique préventif plutôt que la preuve d'un port USB-Ethernet interne. Bonne nouvelle incidente : c'est la même famille de puce que l'adaptateur USB de secours déjà retenu dans le plan (TP-Link UE300, RTL8153).
+* Sur ce boot, `fsck` a corrigé des compteurs de blocs/inodes libres incohérents sur la partition `USER-DATA` (arrêt précédent non propre). Sans conséquence, mais à garder en tête : préférer un arrêt propre du NAS quand possible plutôt qu'une coupure brute, pour éviter cette vérification systématique.
+* `domain_tool.service` et `smbftpd.service` échouent toujours au démarrage (déjà observé lors du premier relevé) — cohérent avec l'absence de disques installés, sans lien avec notre projet.
+
+=== Historique des observations
+
+[cols="1,4"]
+|===
+|Date |Observation
+
+|2026-07-15
+|Premier relevé, à partir de photos de la console de démarrage UGOS affichée sur un écran HDMI classique branché sur le DXP2800 (sprint 0 du plan de projet). Voir aussi `protocol-i2c-leds.adoc` pour le détail du contrôleur LED.
+
+|2026-07-15 (second relevé)
+|Second boot photographié : chip ID I2C (`0xc5b2`), adresse (`0x3a`), chip watchdog (`IT8613`) et pilote boutons (`ug-gpiokey`) tous identiques au premier relevé — *reproductibilité confirmée*, ce qui renforce la fiabilité de ces données pour le sprint 3. Ajout des informations sur la chaîne de démarrage (GRUB) et du pilote `r8152`, absents du premier relevé.
+|===
