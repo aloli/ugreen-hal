@@ -37,8 +37,19 @@ Ce journal consigne, par ordre chronologique, les décisions structurantes et le
 * Correction importante par rapport à une hypothèse initiale : la cible de portage FreeBSD la plus probable est la pile `smbus(4)`/`ichsmb(4)` (SMBus intégré au PCH Intel), pas `iic(4)` seul — cohérent avec l'usage exclusif de transactions SMBus block dans le code de référence.
 * Squelette de code C de portage FreeBSD rédigé (non testé, en attente de matériel).
 
+== 2026-07-15 — Dépôt public, canal de contact zVault et procédure de démarrage
+
+* Confirmation du choix `aloli` (plutôt que `papilip`) pour héberger ce dépôt : décision délibérée, avec l'intention de communiquer sur le projet en cas de succès.
+* Dépôt `ugreen-hal` créé sur GitHub sous `github.com/aloli/ugreen-hal`, en lecture publique (licence BSD-2-Clause), premier commit poussé sur la branche `development`.
+* Recherche des modalités officielles de contact avec l'équipe zVault : canal privilégié identifié comme `github.com/zvaultio/Community` (issues/discussions), en complément de l'adresse `team@zvault.io`. Brouillon de message de prise de contact rédigé (voir plan de projet).
+* Découverte d'un épisode de gouvernance significatif, jusqu'ici seulement anticipé comme risque théorique : peu après le lancement de zVault (février 2025), iXsystems a adressé une notification de retrait pour code propriétaire, entraînant le retrait temporaire des ISO ; l'équipe a réécrit les composants concernés et republié une version propre en mai 2025 (`13.3-MASTER-202505042329`). Le projet est actif et a démontré sa capacité à corriger le tir, mais confirme la nécessité de garder XigmaNAS comme option de repli documentée.
+* Procédure officielle de préparation de la clé USB d'installation documentée (wiki `zVault-Installation`) : téléchargement de l'ISO depuis la page de releases GitHub, écriture via `dd` sous macOS (`diskutil list` pour identifier le périphérique, puis `sudo dd if=... of=/dev/diskN bs=1M conv=sync`). Procédure intégrée à `scripts/prepare-usb-zvault.sh` sous forme de guide commenté (pas d'automatisation, geste destructeur à exécuter à la main).
+* Point encore ouvert : la touche exacte du menu de démarrage BIOS du DXP2800 (probable Suppr/F2 pour le setup, F7/F11/Échap pour le menu de boot, non documentée officiellement) — à confirmer par observation directe au premier essai.
+* Précision terminologique : la « session Claude Code » mentionnée dans le plan de projet désigne en réalité cette session Claude (Cowork) ; pas de bascule nécessaire vers l'outil en ligne de commande du même nom pour la suite du travail.
+
 == Prochaines étapes
 
 * Réception du matériel réseau (pont GL-SFT1200 + KVM Comet GL-RM1), mise en service, connexion stable du NAS de test au réseau.
-* Sprint 1 : mise en place du dépôt `ugreen-hal` (ce dépôt), structure de base, CI FreeBSD.
+* Ouvrir l'issue de prise de contact sur `github.com/zvaultio/Community`.
+* Préparer la clé USB zVault et tenter le premier démarrage externe sur le DXP2800, dès réception du matériel réseau.
 * Sprint 3 : premier test réel du protocole SMBus du contrôleur LED sur le DXP2800 sous FreeBSD/zVault.
