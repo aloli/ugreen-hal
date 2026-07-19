@@ -7,7 +7,7 @@ Ce document recense les NAS UGREEN disponibles à l'achat (marché français, `u
 
 [NOTE]
 ====
-Ce catalogue ne couvre que les modèles vendus sur `ugreen.com/fr-fr/collections/fr-nas`. Il existe aussi des variantes « GT » (`DXP2800GT`, `DXP4800GT`), à base de processeurs AMD Ryzen, apparemment réservées à d'autres marchés (Amérique du Nord notamment) ; elles ne sont pas traitées ici faute de disponibilité confirmée en France, mais sont mentionnées en fin de document pour mémoire.
+Mise à jour du 19/07/2026 : la variante `DXP4800 GT` est en fait bien commercialisée en France (`nas-fr.ugreen.com`), contrairement à ce qu'indiquait une version précédente de ce document. Elle est donc désormais incluse dans le tableau ci-dessous. Sa cousine `DXP2800 GT` n'a pas été retrouvée sur une boutique française à cette date et reste pour l'instant hors tableau, à revérifier.
 ====
 
 == Tableau comparatif
@@ -47,6 +47,14 @@ Ce catalogue ne couvre que les modèles vendus sur `ugreen.com/fr-fr/collections
 |2
 |2× 2,5 GbE
 |1× USB-C 10 Gb/s, 1× USB-A 10 Gb/s (façade), 1× USB-A 5 Gb/s + 2× USB-A 480 Mb/s (arrière), HDMI 4K, lecteur SD 3.0
+
+|*DXP4800 GT*
+|4× SATA (baies 1-2 compatibles U.2) + 2× M.2 NVMe
+|AMD Ryzen Embedded R2514, 4 cœurs/8 threads (3,7 GHz)
+|8 Go DDR4 ECC → 64 Go
+|2
+|2× 10 GbE (agrégation jusqu'à 20 Gb/s)
+|1× USB-C 10 Gb/s, 1× USB-A 10 Gb/s (façade), 1× USB-A 10 Gb/s + 2× USB-A 5 Gb/s (arrière), lecteur SD 3.0
 
 |*DXP4800 Plus*
 |4× SATA + 2× M.2 NVMe
@@ -99,6 +107,7 @@ Vérification faite le 19/07/2026 : les notes matérielles officielles de FreeBS
 ====
 * *Risque déjà identifié sur le réseau 10 GbE* : le choix initial du DXP2800 comme unité de test (sprint 0) excluait explicitement le DXP4800 Plus à cause de son contrôleur réseau Aquantia AQC113, dont le pilote FreeBSD était jugé immature. Ce même risque s'applique très probablement à `DXP4800 Pro`, `DXP6800 Pro`, `DXP8800 Plus` et `DXP480T Plus`, qui partagent tous un port 10 GbE — à vérifier précisément (le chipset réseau exact n'est pas toujours documenté publiquement), mais à traiter comme un risque par défaut.
 * *Modèles réseau « tout 2,5 GbE »* : `DXP2800` (déjà en notre possession) et `DXP4800` (base, sans « Plus ») n'ont que des ports 2,5 GbE, sans le risque Aquantia. `DXP4800` a l'avantage d'utiliser un CPU Intel de la même famille (série N) que le DXP2800, ce qui laisse penser que le contrôleur LED SMBus et les GPIO seront pilotés par le même jeu de puces PCH — hypothèse à vérifier sur matériel réel, pas une certitude.
+* *`DXP4800 GT` : premier modèle AMD du catalogue, à traiter à part* : contrairement à tous les autres `DXP*` (Intel), le `DXP4800 GT` embarque un AMD Ryzen Embedded R2514 — une plateforme différente (pas de PCH Intel), donc le contrôleur LED SMBus et les GPIO y sont probablement câblés différemment, avec potentiellement un chip ID différent de celui déjà documenté (`0xc5b2`) dans `docs/protocol-i2c-leds.adoc`. Le chipset exact de ses deux ports 10 GbE n'est pas documenté publiquement à ce jour (contrairement à l'Aquantia AQC113 des modèles Intel) : ni confirmé sûr, ni confirmé à risque — inconnu, à traiter comme tel. Il supporte aussi la RAM ECC et des SSD U.2 sur les baies 1-2, deux particularités absentes du reste de la gamme.
 
 == Recommandation d'achat
 
@@ -113,6 +122,8 @@ Non, il n'est pas nécessaire d'acquérir toute la gamme. Les différences entre
 *Repli plus prudent, si le `DXP4800` s'avère indisponible ou trop cher* : un second `DXP2800`, strictement identique au premier. Moins intéressant pour la « généralisation à d'autres modèles » (Phase 5 du plan), mais zéro risque matériel nouveau, et suffisant pour disposer d'une deuxième unité physique dédiée à XigmaNAS pendant que la première reste sur zVault.
 
 *À différer* : `DXP6800 Pro`, `DXP8800 Plus` et `DXP480T Plus`. Ce sont des machines nettement plus chères (environ 1 000 à 1 400 €), avec des baies et des ports (Thunderbolt 4, PCIe) qui n'apportent rien tant que le pilote de base n'est pas validé sur au moins deux modèles simples. Ils redeviennent pertinents pour la Phase 5 (« généralisation à d'autres modèles de la gamme »), une fois le cœur du HAL stable — pas avant.
+
+*`DXP4800 GT` : candidat naturel pour une* troisième *unité, mais pas pour le second achat immédiat.* Sa plateforme AMD en fait le meilleur test possible de la vraie généralisation visée en Phase 5 (le pilote fonctionne-t-il sur un contrôleur LED potentiellement différent, pas seulement sur un CPU Intel plus rapide) — bien plus parlant qu'un second `DXP4800` Intel de ce point de vue. Mais c'est aussi un saut dans l'inconnu (chip ID LED probablement différent, chipset 10 GbE non documenté) : le garder pour une fois le cœur du HAL stabilisé sur la famille Intel (sprint 5 passé), plutôt que d'en faire l'unité XigmaNAS immédiate — sinon vous risquez de mener de front deux inconnues (intégration XigmaNAS *et* nouveau matériel LED) au moment le moins favorable pour ça.
 
 *Non retenus pour ce projet* : `DH2300` et `DH4300 Plus` (ARM, incompatibles avec l'objectif FreeBSD).
 
@@ -133,3 +144,5 @@ Non, il n'est pas nécessaire d'acquérir toute la gamme. Les différences entre
 * https://nascompares.com/guide/the-ugreen-nasync-nas-dxp2800-dxp4800-dxp6800-dxp8800-and-dxp480t-should-you-buy/[The UGreen NASync NAS — NAS Compares]
 * https://www.freebsd.org/releases/15.1R/hardware/[FreeBSD 15.1 Hardware Notes — matériel supporté]
 * https://forums.freebsd.org/threads/how-to-run-freebsd-on-new-boards-built-on-rockchip-35xx.88430/[How to run FreeBSD on new boards built on Rockchip 35XX — forum FreeBSD]
+* https://nas-fr.ugreen.com/products/ugreen-nasync-dxp4800-gt-4-bay-nas-storage[UGREEN NASync DXP4800 GT — fiche officielle France]
+* https://www.tweaktown.com/reviews/11510/ugreen-nasync-dxp4800-gt-powerful-4-bay-nas-with-amd-ryzen-and-dual-10gbe-ports/index.html[UGREEN NASync DXP4800 GT Review — TweakTown]
