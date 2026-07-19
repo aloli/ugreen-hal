@@ -91,6 +91,11 @@ Ce catalogue ne couvre que les modèles vendus sur `ugreen.com/fr-fr/collections
 == Pertinence pour `ugreen-hal`
 
 * *Famille de silicium* : `DH2300` et `DH4300 Plus` reposent sur un SoC ARM (Rockchip RK3576). FreeBSD n'a pas de support mainline pour ce SoC, et ni zVault ni XigmaNAS ne tournent sur ARM en pratique aujourd'hui — ces deux modèles sont donc *hors scope* pour `ugreen-hal`, quel qu'en soit le prix attractif. Tous les autres modèles (`DXP*`) sont x86 (Intel), donc potentiellement pertinents.
++
+[NOTE]
+====
+Vérification faite le 19/07/2026 : les notes matérielles officielles de FreeBSD 15.1 (AArch64, Tier-1) ne listent que les SoC Rockchip RK3328, RK3399, RK3566 et RK3568 — le RK3576 n'y figure pas. Un travail communautaire actif existe sur le fil du forum FreeBSD *« How to run FreeBSD on new boards built on Rockchip 35XX »* (contributions récentes de juin 2025, support VOP2/Panfrost sur RK3566/RK3568), mais aucune mention du RK3576 n'y apparaît, et aucun patch ou revue le concernant n'a été trouvé sur les listes de diffusion ou l'ancien Phabricator du projet. Rien n'indique qu'un portage soit prévu ou en cours à ce jour ; à réévaluer périodiquement plutôt qu'à considérer comme définitivement clos.
+====
 * *Risque déjà identifié sur le réseau 10 GbE* : le choix initial du DXP2800 comme unité de test (sprint 0) excluait explicitement le DXP4800 Plus à cause de son contrôleur réseau Aquantia AQC113, dont le pilote FreeBSD était jugé immature. Ce même risque s'applique très probablement à `DXP4800 Pro`, `DXP6800 Pro`, `DXP8800 Plus` et `DXP480T Plus`, qui partagent tous un port 10 GbE — à vérifier précisément (le chipset réseau exact n'est pas toujours documenté publiquement), mais à traiter comme un risque par défaut.
 * *Modèles réseau « tout 2,5 GbE »* : `DXP2800` (déjà en notre possession) et `DXP4800` (base, sans « Plus ») n'ont que des ports 2,5 GbE, sans le risque Aquantia. `DXP4800` a l'avantage d'utiliser un CPU Intel de la même famille (série N) que le DXP2800, ce qui laisse penser que le contrôleur LED SMBus et les GPIO seront pilotés par le même jeu de puces PCH — hypothèse à vérifier sur matériel réel, pas une certitude.
 
@@ -125,3 +130,5 @@ Non, il n'est pas nécessaire d'acquérir toute la gamme. Les différences entre
 * https://www.broadbandbuyer.com/products/55789-ugreen-dh4300-plus/specifications/[UGREEN NASync DH4300 Plus — fiche technique]
 * https://www.wundertech.net/best-ugreen-nas/[Best UGREEN NAS in 2026: Every NASync Model Compared — WunderTech]
 * https://nascompares.com/guide/the-ugreen-nasync-nas-dxp2800-dxp4800-dxp6800-dxp8800-and-dxp480t-should-you-buy/[The UGreen NASync NAS — NAS Compares]
+* https://www.freebsd.org/releases/15.1R/hardware/[FreeBSD 15.1 Hardware Notes — matériel supporté]
+* https://forums.freebsd.org/threads/how-to-run-freebsd-on-new-boards-built-on-rockchip-35xx.88430/[How to run FreeBSD on new boards built on Rockchip 35XX — forum FreeBSD]
