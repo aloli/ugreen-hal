@@ -48,6 +48,9 @@ The detailed technical documentation under `docs/` is currently written in Frenc
 |`docs/journal.adoc`
 |Dated log of observations, decisions, and milestones.
 
+|`docs/plan-firmware-freebsd-ugreen-nas.adoc`
+|Reference project plan: phases, sprints, architecture, risks.
+
 |`docs/catalogue-nas-ugreen.adoc`
 |Comparison catalogue of available UGREEN NAS models, used to plan hardware purchases.
 
@@ -65,6 +68,9 @@ The detailed technical documentation under `docs/` is currently written in Frenc
 
 |`.github/workflows/ci.yml`
 |Continuous integration on FreeBSD (via `vmactions/freebsd-vm`).
+
+|`CLAUDE.md`
+|Pointer file for Claude Code (project context lives in the AsciiDoc docs above).
 |===
 
 == License

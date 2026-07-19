@@ -1,0 +1,759 @@
+= Plan de projet : firmware FreeBSD pour NAS UGREEN (NASync DXP)
+Philippe
+v1.9, 2026-07-19
+:toc:
+:toclevels: 3
+:sectnums:
+:source-highlighter: rouge
+:icons: font
+
+[IMPORTANT]
+====
+Ce document est un plan de travail, pas une garantie de réussite. Remplacer entièrement le firmware d'un NAS UGREEN par un système FreeBSD est un projet de portage bas niveau à part entière : il touche au chargeur d'amorçage, au stockage interne, aux capteurs et à l'électronique propriétaire de la carte. Le risque de « brick » (appareil rendu inutilisable) est réel tant que la procédure de restauration n'a pas été validée. Le plan ci-dessous est volontairement prudent et progressif, en tenant compte du fait qu'il s'agit d'un premier projet de ce type et qu'il est destiné, à terme, à être publié pour la communauté.
+====
+
+== Contexte et cadrage retenu
+
+* Modèle(s) ciblé(s) : encore ouvert, avec l'intention de couvrir plusieurs modèles de la gamme NASync DXP à terme.
+* Objectif final : remplacer entièrement UGOS (le firmware Linux propriétaire d'UGREEN) par un système de démarrage FreeBSD.
+* Niveau de départ : débutant sur le développement bas niveau (pilotes, bus I2C/SMBus, `buildworld`/`buildkernel`).
+* Portée : projet destiné à être publié en open source pour la communauté UGREEN NAS.
+
+Compte tenu de ce cadrage, la stratégie recommandée est de _ne pas_ commencer par un remplacement complet du firmware sur plusieurs modèles à la fois. Un débutant qui viserait cet objectif directement risque de bricker son NAS avant même d'avoir validé qu'un composant fonctionne. Le plan suit donc une logique en entonnoir : un seul modèle, un démarrage externe d'abord, puis un remplacement interne, puis seulement la généralisation à d'autres modèles et la publication.
+
+[NOTE]
+====
+Précision de cadrage (v0.2) : l'intention de départ était de s'appuyer sur TrueNAS. Or TrueNAS (la marque commerciale portée par iXsystems) a basculé son produit phare, *TrueNAS SCALE*, sur un socle Linux ; seule l'ancienne ligne *TrueNAS CORE* restait basée sur FreeBSD/ZFS, et son développement par iXsystems est arrêté (maintenance minimale, pas de nouvelles fonctionnalités). L'exigence est donc désormais explicite et non négociable : FreeBSD comme système d'exploitation, ZFS comme système de stockage. Cette contrainte change la stratégie logicielle du projet : plutôt que de partir de zéro ou de forker XigmaNAS comme envisagé en v0.1, il existe désormais une option plus directe, présentée dans la section suivante.
+====
+
+== Ce que la recherche préalable montre
+
+Quelques constats issus de l'étude du matériel et de l'écosystème existant, qui conditionnent fortement la suite du plan :
+
+* La gamme NASync DXP repose sur du matériel x86_64 grand public : Intel N100 (DXP2800), Intel Pentium Gold 8505 (DXP4800 Plus), et des modèles récents à base AMD (gamme DXP GT). Ce n'est donc pas un SoC ARM exotique : le noyau FreeBSD générique démarre déjà correctement sur ce type de plateforme.
+* Le support FreeBSD "de base" (démarrage, disques SATA/NVMe, USB, 2.5GbE) n'est a priori pas le point bloquant. La preuve la plus parlante est qu'un utilisateur a déjà fait tourner OPNsense (qui est un FreeBSD) sur un DXP4800 Plus en le transformant en routeur, ce qui confirme que le matériel de base démarre et fonctionne sous FreeBSD.
+* Les vrais points durs sont les éléments propriétaires spécifiques à UGREEN, non documentés officiellement :
+** le contrôleur des LED de façade et des baies de disques, piloté via I2C/SMBus, déjà rétro-ingénié pour Linux par le projet `miskcoo/ugreen_leds_controller` (et ses dérivés pour le DXP8800 et le DX4600 Pro) ;
+** potentiellement le buzzer, les boutons et certains capteurs de température/ventilateur ;
+** la puce réseau 10GbE, qui semble être une Aquantia/Marvell AQC113. Or le pilote FreeBSD pour cette puce (`Aquantia/aqtion-freebsd`) est explicitement qualifié de « development preview » : son état de maturité doit être vérifié avant de compter dessus pour un modèle qui embarque ce port.
+* Il existe déjà un écosystème FreeBSD orienté NAS mature (XigmaNAS, historiquement NAS4Free) qui fournit une base logicielle éprouvée (ZFS, Samba, NFS, interface web) : plutôt que d'écrire un firmware NAS complet depuis zéro, l'option la plus réaliste pour un débutant est d'ajouter le support du matériel UGREEN à un projet existant, ou de s'en inspirer très largement pour la partie « socle NAS », et de concentrer l'effort réellement nouveau sur les pilotes spécifiques à UGREEN.
+
+== Projets FreeBSD/ZFS existants auxquels participer
+
+Puisque l'objectif est explicitement de rester sur FreeBSD et ZFS, la question à se poser n'est plus « quel projet créer » mais « quel projet existant rejoindre, pour y apporter le support matériel UGREEN plutôt que de repartir de zéro ». Trois pistes sérieuses se dégagent.
+
+*Mise à jour v1.8* : les deux premières (zVault et XigmaNAS) sont désormais toutes les deux des cibles d'intégration à part entière, et non plus une principale et un repli — voir « Phase 3 — Architecture logicielle » pour la stratégie technique qui rend ça possible sans doubler tout le travail.
+
+=== zVault — première cible d'intégration
+
+zVault est un fork communautaire de TrueNAS CORE, né précisément de la même bascule que celle qui motive ce projet : au moment où iXsystems a réorienté TrueNAS vers Linux, une partie de la communauté a repris le code de TrueNAS CORE (système d'exploitation, middleware, interface web) pour continuer à le faire vivre sous licence libre, sans dépendance à iXsystems.
+
+* *Base technique* : FreeBSD comme système, ZFS comme stockage, code issu directement de TrueNAS CORE — c'est donc, fonctionnellement, la suite logique de ce que vous cherchiez avec TrueNAS à l'origine.
+* *Dépôts* (organisation GitHub `zvaultio`) : `zvio-os` (le système FreeBSD personnalisé), `zvio-middleware` (couche applicative en Python, héritée de TrueNAS), `zvio-webui` (interface web en TypeScript), `zvio-build` (chaîne de construction), `Community` (suivi des discussions et des tickets).
+* *Statut* : projet jeune — première version publique (13.3) le 25 février 2025. *Mise à jour v1.5* : le risque de gouvernance évoqué plus bas dans ce document s'est concrètement matérialisé une fois, et donne un signal instructif sur la solidité de l'équipe. Peu après le lancement, iXsystems a adressé une notification de retrait (copyright) à l'équipe zVault, qui a reconnu avoir cru à tort que l'intégralité de TrueNAS CORE était librement réutilisable ; les ISO ont été retirées le temps de réécrire les composants concernés, puis republiées dès mai 2025 (version 13.3-MASTER-202505042329) une fois le code propriétaire effectivement retiré. Le projet est donc bien vivant et a démontré sa capacité à réagir correctement à une difficulté sérieuse — mais cet épisode confirme qu'il s'agit d'un terrain juridique et technique encore mouvant, à surveiller plutôt qu'à considérer comme stabilisé.
+* *Comment participer* : les dépôts sont ouverts aux contributions. Deux canaux existent : une adresse e-mail (`team@zvault.io`, trouvée sur le site officiel `zvault.io`) et le dépôt `github.com/zvaultio/Community`, qui sert à la fois de forum de discussion et de suivi de tickets — c'est visiblement le canal que l'équipe utilise le plus activement pour échanger avec la communauté (voir « Contact avec l'équipe zVault » au sprint 0). Le support d'un NAS UGREEN (détection matérielle, pilote LED, capteurs) n'y est pas encore traité à ce jour : c'est exactement le type de contribution « verticale » qu'un nouveau venu peut porter de bout en bout, sans avoir à toucher au cœur du middleware.
+* *Attention à l'homonymie* : il existe un tout autre projet, sans rapport, appelé lui aussi « zVault » (`zvault.cloud`, un gestionnaire de secrets). Toujours vérifier qu'on est bien sur `zvault.io` / `github.com/zvaultio` avant de suivre un lien ou une instruction trouvée en ligne.
+* *Pourquoi commencer par elle* : cela évite de reconstruire un NAS complet (partage Samba/NFS, snapshots, réplication, interface d'administration) qui existe déjà et qui est directement hérité de TrueNAS CORE — l'expérience utilisateur sera proche de ce que vous recherchiez initialement. C'est aussi la distribution retenue pour développer et valider le pilote en premier (voir Phase 3).
+
+=== XigmaNAS — seconde cible d'intégration
+
+XigmaNAS (anciennement NAS4Free) est un système NAS FreeBSD avec support ZFS natif, actif depuis de nombreuses années et toujours maintenu (wiki mis à jour régulièrement en 2026).
+
+*Mise à jour v1.7, après vérification directe des sources officielles et de retours d'utilisateurs (07/2026)* :
+
+* *Maturité confirmée, pas seulement supposée* : dernière version (14.3.0.5) publiée le 05/07/2026, base FreeBSD 14.1/13.3, plus de 100 000 téléchargements cumulés (badge « Open Source Excellence » SourceForge), environ 1 600 téléchargements/semaine. Aucun risque d'abandon comparable à celui traversé par zVault.
+* *Absence de middleware — avantage concret pour ce projet précis* : contrairement à zVault/TrueNAS CORE (middleware Python hérité, base de données de configuration), XigmaNAS reste un FreeBSD standard avec ses fichiers de configuration aux emplacements habituels. Pour du travail de portage matériel bas niveau (piloter le contrôleur LED en SMBus, tester un driver), c'est potentiellement plus simple à déboguer : moins de couches entre le matériel et le test, pas de service de middleware à contourner ou à redémarrer.
+* *Inconvénients confirmés par des retours d'utilisateurs réels* : interface qualifiée de « minimaliste » et datée, moins intuitive que TrueNAS (fonctions comme les snapshots enfouies dans les menus, pas de fonction réseau « tester avant d'appliquer »). Le forum communautaire officiel est par ailleurs fermé (inscription obligatoire, non indexé par les moteurs de recherche) — heureusement, ce n'est pas le seul canal disponible, voir ci-dessous.
+* *Comment participer* : le dépôt GitHub `github.com/XigmaNAS/XigmaNAS` existe mais est peu actif (l'essentiel de l'infrastructure du projet reste sur SourceForge, historique du projet oblige) ; le canal le plus adapté pour signaler une intention de contribution est le suivi de tickets SourceForge (`sourceforge.net/p/xigmanas/tickets/`), accessible avec un compte SourceForge gratuit, sans passer par le forum fermé. Il existe déjà un écosystème d'« extensions » tierces bien établi (Plex, Bastille, Zrep, Telegraf, AdGuard, maintenues notamment par le contributeur communautaire JRGTH), toutes construites sur le même schéma : un dossier `etc/` (scripts et configuration), un dossier `gui/` (pages PHP intégrées à l'interface d'administration), un script d'initialisation, un fichier `version` et des notes de version. C'est le modèle à suivre pour `integrations/xigmanas/`.
+* *Décision v1.8* : cible d'intégration à part entière, en parallèle de zVault plutôt qu'en repli. Développement du pilote toujours prioritairement validé sur zVault (voir Phase 3), portage vers XigmaNAS dans un second temps une fois le pilote stable — l'absence de middleware devrait rendre ce portage plus direct qu'une intégration zVault équivalente.
+
+=== Contribuer en amont, au niveau de FreeBSD et d'OpenZFS
+
+Une troisième piste, complémentaire des deux précédentes plutôt qu'alternative : une partie du travail de portage matériel (pilote du contrôleur LED via I2C/SMBus, capteurs) peut être proposée directement au projet FreeBSD (noyau ou ports) ou, pour tout ce qui touche au stockage, à l'organisation OpenZFS elle-même (`openzfs/zfs` sur GitHub, qui couvre à la fois Linux et FreeBSD).
+
+* *Avantage majeur* : un pilote intégré à FreeBSD lui-même (plutôt qu'à zVault ou XigmaNAS uniquement) profite automatiquement à tous les projets qui se basent sur FreeBSD, y compris zVault et XigmaNAS en même temps, sans duplication de travail.
+* *Contrepartie* : le processus de contribution au projet FreeBSD lui-même (revue par les committers, respect des conventions du dépôt `src`, éventuellement passage par les ports) est plus formel et plus lent qu'une contribution directe à un petit projet comme zVault.
+* *Stratégie recommandée* : développer et faire mûrir le pilote d'abord dans le cadre de zVault (itération rapide, retours concrets sur le matériel réel), puis proposer son intégration en amont dans FreeBSD une fois stabilisé.
+
+=== Signal complémentaire côté communauté UGREEN
+
+Un fil de discussion existe déjà sur le forum officiel TrueNAS, où des utilisateurs demandent explicitement un support UGREEN NASync — signe qu'il y a une demande réelle et potentiellement d'autres contributeurs à recruter autour de ce sujet précis, que ce soit sur zVault ou ailleurs.
+
+== Feuille de route en six phases
+
+=== Phase 0 — Étude et choix du NAS de développement
+
+* Choisir un seul modèle pour démarrer. Choix retenu (v0.4) : le *DXP2800*, pour des raisons de coût et de simplicité matérielle détaillées dans la sous-section « Choix du NAS de test » ci-dessous. Le DXP4800 Plus, mieux documenté par la communauté mais deux fois plus cher et doté d'une puce 10GbE dont le pilote FreeBSD est immature, devient la cible de la phase 5 (généralisation). Les modèles DXP6800/8800 Pro et la gamme DXP GT viendront encore plus tard.
+* Se procurer (ou dédier) un exemplaire physique du modèle choisi, en acceptant qu'il devienne indisponible en usage normal pendant toute la durée du développement.
+* Étudier la fiche technique précise : chipset, modèle exact du contrôleur réseau, présence d'un port série ou de headers de debug sur la carte mère, type de stockage interne (SSD embarqué de 128 Go sur le DXP4800 Plus par exemple).
+* Lire en détail le code des projets communautaires déjà cités (pilote LED Linux, scripts d'installation TrueNAS/OPNsense) : ces sources documentent indirectement le matériel, même si elles sont écrites pour Linux et non FreeBSD.
+* Rejoindre les communautés actives sur le sujet (forums TrueNAS, NAS Compares, dépôts GitHub des projets LED) pour repérer d'autres personnes ayant déjà exploré le firmware d'origine.
+
+=== Phase 1 — Preuve de concept : FreeBSD « vanilla » en démarrage externe
+
+Objectif : démontrer qu'un FreeBSD générique démarre et fonctionne correctement sur le NAS, sans toucher au stockage interne ni au firmware d'origine.
+
+* Sauvegarder intégralement l'état d'origine avant toute manipulation : image du SSD interne, capture des versions de firmware/BIOS, notes sur la configuration UGOS.
+* Installer FreeBSD (ou XigmaNAS, qui est basé dessus) sur une clé USB ou un SSD externe, et démarrer le NAS dessus en conservant UGOS intact sur le stockage interne, exactement comme l'ont fait les utilisateurs ayant installé TrueNAS SCALE ou OPNsense.
+* Valider un par un les éléments matériels de base : détection des baies de disques, contrôleurs SATA/NVMe, port(s) réseau 2.5GbE (pilotes `igc`/`em` selon le chipset), USB, capteurs visibles via `sysctl`/ACPI.
+* Documenter précisément ce qui fonctionne « out of the box » et ce qui ne fonctionne pas (LED, boutons, capteurs propriétaires, 10GbE le cas échéant).
+
+Cette phase seule apporte déjà une valeur réelle et publiable : un guide « FreeBSD/XigmaNAS sur tel modèle UGREEN, démarrage externe » est un livrable intermédiaire utile à la communauté, même avant d'attaquer les pilotes propriétaires.
+
+=== Phase 2 — Pilotes spécifiques au matériel UGREEN
+
+C'est la partie la plus technique du projet, et celle où la montée en compétence sera la plus nécessaire.
+
+* Contrôleur LED : porter la logique déjà documentée par `ugreen_leds_controller` (protocole I2C/SMBus, adresses, séquences de commandes) vers FreeBSD, en s'appuyant sur les couches `iic(4)`/`smbus(4)` du noyau. Dans un premier temps, un utilitaire en espace utilisateur s'appuyant sur `/dev/iic*` est largement suffisant ; un vrai pilote noyau ne devient utile que plus tard, pour l'intégration avec `devd`/`geom` (allumer une LED d'erreur quand un disque ZFS tombe en dégradé, par exemple).
+* Boutons et buzzer : identifier s'ils sont exposés via GPIO, via le même contrôleur I2C que les LED, ou via ACPI, puis les rendre accessibles à FreeBSD.
+* Capteurs de température et ventilateurs : vérifier si les puces Super I/O standard sont déjà couvertes par les pilotes `it(4)`/`coretemp(4)` existants de FreeBSD avant d'envisager du travail spécifique.
+* Réseau 10GbE (si le modèle choisi en dispose) : évaluer l'état réel du pilote `aqtion-freebsd` (compilation, stabilité, débit) ; prévoir un plan B si le port n'est pas exploitable rapidement (rester sur le port 2.5GbE en attendant que le pilote mûrisse).
+* À chaque composant, documenter la démarche de rétro-ingénierie utilisée (analyse du pilote Linux existant, sniffing I2C, datasheets publiques du contrôleur si identifiable) : cette documentation est ce qui donnera de la valeur au projet une fois publié.
+
+=== Phase 3 — Architecture logicielle du firmware
+
+[IMPORTANT]
+====
+*Changement de stratégie (v1.8)* : sur votre décision, `ugreen-hal` ne vise plus zVault comme cible principale avec XigmaNAS en simple repli, mais les *deux* distributions dès le départ, avec l'intention de contribuer aux deux communautés. C'est plus de travail (deux intégrations, deux communautés, deux allers-retours de revue), mais le nom du dépôt — Hardware Abstraction Layer — a justement été choisi dès le sprint 0 pour rendre ce choix possible sans tout refaire. Le principe qui rend ça gérable : *le travail difficile ne double pas, seul l'emballage double*.
+====
+
+* *Cœur du HAL, indépendant de la distribution* : tout le travail de rétro-ingénierie et de pilotage matériel (protocole SMBus du contrôleur LED, boutons GPIO, capteurs IT8613) reste du FreeBSD standard dans `src/cli/` — un utilitaire en espace utilisateur qui ne connaît ni zVault ni XigmaNAS, seulement `smbus(4)`/`gpio(4)`. C'est cette partie, la plus risquée et la plus longue (rétro-ingénierie, tests sur matériel réel), qui ne se fait qu'une seule fois.
+* *Deux couches d'intégration fines, une par distribution*, ajoutées une fois le cœur validé (voir structure de dépôt révisée au sprint 1) :
+** `integrations/zvault/` : empaquetage comme module additionnel à `zvio-os`/`zvio-middleware`, dans la continuité de ce qui était déjà prévu — bénéficie de l'interface web héritée de TrueNAS CORE.
+** `integrations/xigmanas/` : suit le modèle d'extension déjà établi par la communauté XigmaNAS (voir les « extensions » publiées par le contributeur JRGTH — Plex, Bastille, Zrep, Telegraf — toutes construites sur le même schéma `etc/` + `gui/` en PHP + script d'init + fichier `version`). Ce schéma est bien documenté par l'exemple, même si XigmaNAS n'a pas de guide de contribution formel.
+* *Ordre confirmé (v1.8)* : développer et valider le pilote sur zVault en premier (c'est déjà ce que prévoit le sprint 3, et c'est la distribution la plus proche de l'expérience TrueNAS recherchée à l'origine), puis porter l'intégration vers XigmaNAS une fois le pilote stable — plutôt que de mener les deux intégrations en parallèle dès le sprint 3, ce qui doublerait la charge au moment le plus incertain du projet.
+* Définir le système de fichiers racine et la politique de mise à jour : image en lecture seule avec bascule A/B (comme le fait un firmware embarqué classique) plutôt qu'un système de fichiers root modifiable en direct, pour limiter les risques de corruption après coupure de courant. Vérifier ce que zVault et XigmaNAS proposent chacun sur ce point avant de réinventer un mécanisme commun.
+* Prévoir un pool ZFS pour le stockage de données dès cette phase, avec un jeu de tests de résilience (arrêt brutal, disque retiré à chaud, scrub) — à rejouer sur les deux distributions.
+* Si une interface d'administration complémentaire dédiée aux spécificités UGREEN (état des LED, températures) devient utile un jour, en plus de ce qu'offrent nativement zVault et XigmaNAS, une pile légère en Crystal (ou Ruby) avec HTMX et Bulma CSS — cohérente avec vos habitudes de développement — reste envisageable en overlay, ces deux langages étant disponibles via les paquets FreeBSD (`ports`/`pkg`). Ce n'est cependant pas une priorité avant que le socle matériel ne soit stable sur les deux cibles.
+
+=== Phase 4 — Remplacement du firmware interne
+
+Cette phase ne doit démarrer qu'une fois les phases 1 à 3 validées de façon fiable et reproductible en démarrage externe.
+
+* Étudier précisément la chaîne de démarrage d'origine (UEFI/BIOS, partitionnement du SSD interne, présence éventuelle d'un mode de récupération constructeur) avant d'écrire quoi que ce soit sur le stockage interne.
+* Mettre en place une procédure de restauration testée et documentée *avant* la première écriture sur le SSD interne (image complète déjà sauvegardée en phase 1, méthode de ré-écriture depuis un support externe).
+* Basculer d'abord un unique exemplaire de test, jamais l'unique NAS en production s'il y en a un.
+* Ne migrer un NAS « de production » qu'après plusieurs cycles de test concluants sur le NAS de développement.
+
+=== Phase 5 — Généralisation à d'autres modèles de la gamme
+
+* Une fois un modèle totalement maîtrisé, extraire la partie « pilotes UGREEN » sous une forme paramétrable (détection automatique du modèle, table de correspondance protocole LED / modèle, inspirée des variantes déjà observées entre le DX4600 Pro, le DXP4800/6800/8800 et l'iDX6011 Pro).
+* Traiter chaque nouveau modèle comme un nouveau cycle des phases 1 à 4, mais raccourci grâce à l'architecture déjà en place.
+* Constituer une matrice de compatibilité publique (modèle → composants supportés → composants non supportés) dès cette étape.
+
+=== Phase 6 — Publication et vie du projet open source
+
+* Choisir une licence compatible avec celle de FreeBSD et des projets réutilisés (BSD/MIT plutôt que GPL si des éléments XigmaNAS ou des pilotes Linux existants sont réutilisés en s'inspirant de leur logique, pas de leur code sous licence incompatible).
+* Mettre en place un dépôt Git avec : documentation d'installation, procédure de restauration d'urgence bien visible, matrice de compatibilité matérielle, images précompilées si possible.
+* Prévoir une intégration continue minimale (compilation automatique du monde FreeBSD et des pilotes) pour détecter les régressions.
+* Ouvrir un canal de discussion (issues GitHub, forum) pour récolter les retours d'autres possesseurs de NAS UGREEN, en particulier pour les modèles non encore couverts.
+
+== Risques et points de vigilance
+
+* *Brick matériel* : point de vigilance numéro un. Toujours disposer d'une sauvegarde complète et d'une méthode de restauration validée avant toute écriture sur le stockage interne.
+* *Garantie constructeur* : modifier le firmware annule très probablement la garantie UGREEN ; à documenter clairement pour les futurs utilisateurs du projet.
+* *Pilote 10GbE immature* : ne pas construire la feuille de route autour d'un composant dont le support FreeBSD est encore en développement ; prévoir des solutions de repli.
+* *Rétro-ingénierie sans documentation officielle* : le protocole I2C des LED, boutons et capteurs n'est pas documenté par UGREEN ; le travail s'appuie sur la rétro-ingénierie déjà faite côté Linux, à valider et adapter, avec le risque que le protocole diffère légèrement d'un modèle ou d'une révision de carte à l'autre.
+* *Charge de montée en compétence* : partant d'un niveau débutant sur ce terrain, prévoir un temps d'apprentissage explicite (voir feuille de route ci-dessous) plutôt que de le sous-estimer.
+* *Jeunesse et gouvernance de zVault* : projet bénévole sans financement, existant depuis début 2025 seulement. Rien ne garantit sa pérennité à long terme. Ce risque n'est plus purement hypothétique : un différend de copyright avec iXsystems a interrompu la disponibilité des ISO pendant plusieurs semaines début 2025, avant résolution et republication en mai 2025 (voir section « Projets FreeBSD/ZFS existants »). À surveiller : activité réelle des dépôts, réactivité de l'équipe (`github.com/zvaultio/Community` ou `team@zvault.io`), et absence de blocage sur la contribution externe. Conserver XigmaNAS comme option de repli documentée plutôt qu'hypothétique, justement pour ce motif.
+
+== Feuille de route indicative
+
+[cols="1,3,2", options="header"]
+|===
+|Phase |Contenu |Durée indicative (débutant, projet à temps partiel)
+
+|Montée en compétence
+|Bases FreeBSD (`buildworld`/`buildkernel`), bus I2C/SMBus, lecture de pilotes Linux existants
+|4 à 8 semaines
+
+|Phase 0
+|Étude et choix du NAS de développement
+|1 à 2 semaines
+
+|Phase 1
+|PoC démarrage externe
+|2 à 4 semaines
+
+|Phase 2
+|Pilotes matériel UGREEN (LED, boutons, capteurs, réseau)
+|2 à 4 mois (poste le plus incertain du planning)
+
+|Phase 3
+|Architecture logicielle du firmware
+|3 à 6 semaines
+
+|Phase 4
+|Remplacement du firmware interne
+|2 à 4 semaines, après validation complète des phases précédentes
+
+|Phase 5
+|Généralisation multi-modèles
+|1 à 2 mois par modèle supplémentaire
+
+|Phase 6
+|Publication open source
+|En continu, à partir de la phase 1
+|===
+
+== Plan d'exécution détaillé avec Claude Code
+
+Cette section opérationnalise les phases 0 à 3 décrites plus haut (études, PoC, pilotes, intégration à zVault) en sprints concrets, avec pour chaque étape : qui fait quoi, quel est le livrable, et comment on sait que c'est réussi. Les phases 4 à 6 (remplacement du firmware interne, multi-modèles, publication large) restent volontairement à un niveau moins détaillé : elles ne deviennent pertinentes qu'une fois les sprints ci-dessous validés.
+
+=== Répartition des rôles : ce que Claude Code peut faire, et ce qui reste entre vos mains
+
+[IMPORTANT]
+====
+Point de réalisme à poser avant toute chose : dans ce document, « Claude Code » désigne de façon générique l'assistant IA qui vous accompagne sur ce projet. *Précision v1.5* : jusqu'ici, le travail s'est fait dans Claude (Cowork), pas dans l'outil en ligne de commande distinct qui porte officiellement le nom « Claude Code » — la distinction avait alors peu d'importance pratique, Cowork disposant déjà de l'essentiel (édition de fichiers, shell, accès en lecture/écriture à votre dossier `ugreen-hal` sur le Mac via le pont de fichiers).
+
+*Bascule v1.8* : vous passez maintenant réellement à l'outil en ligne de commande Claude Code, en local sur votre Mac — probablement pour une boucle de compilation/test plus rapide (VM FreeBSD locale) sans dépendre du pont de fichiers. Point important pour la continuité : cette session Cowork ne transmet pas sa mémoire de conversation à la nouvelle session Claude Code. Tout ce qui doit survivre à la bascule a donc été explicitement couché sur disque dans le dépôt : ce plan lui-même (`docs/plan-firmware-freebsd-ugreen-nas.adoc`, jusqu'ici jamais committé — seulement envoyé en téléchargement), `docs/journal.adoc` tenu à jour à chaque décision, `docs/catalogue-nas-ugreen.adoc`, et un `CLAUDE.md` minimal à la racine qui pointe vers ces documents pour que Claude Code retrouve le contexte dès l'ouverture du dépôt, sans que vous ayez à tout recoller manuellement dans la conversation.
+
+Cet assistant s'exécute dans un environnement isolé, sans accès physique à votre NAS, à son bus I2C, ni à un port série. Il ne peut ni brancher un câble, ni flasher un support, ni observer directement une LED s'allumer. Le plan ci-dessous est construit autour de cette contrainte plutôt qu'en la niant : l'assistant porte tout ce qui est intellectuel et reproductible (code, documentation, scripts, analyse de journaux), vous portez tout ce qui est physique et ponctuel (manipulation du NAS, câblage, tests en direct). L'aller-retour entre les deux est constant : vous collez les journaux et messages d'erreur dans la conversation, l'assistant les analyse et ajuste le code en conséquence.
+====
+
+[cols="2,3,3", options="header"]
+|===
+|Type de tâche |Claude Code (ici, dans cette session) |Vous
+
+|Code (pilote CLI, scripts, module noyau)
+|Écrit, revoit, corrige à partir de vos retours
+|Copie le code sur le NAS/la VM de test, compile, exécute
+
+|Documentation (protocole I2C, journal de bord, README)
+|Rédige et tient à jour en AsciiDoc/Markdown
+|Relit, complète avec les observations physiques (numéros de baies, comportement réel)
+
+|Dépôt Git, structure de projet, CI
+|Prépare l'arborescence, les fichiers de configuration, les workflows
+|Crée le dépôt distant (GitHub) et y pousse le contenu préparé, si aucun connecteur Git n'est relié à la session
+
+|Sauvegarde et flash du NAS
+|Rédige le script et la procédure pas à pas
+|Exécute physiquement la sauvegarde/le flash et confirme le résultat
+
+|Tests sur matériel réel (LED, capteurs, réseau)
+|Prépare le protocole de test et interprète les résultats
+|Exécute les commandes sur le NAS ou la VM, retranscrit ce qu'il observe (LED allumée, erreur console, etc.)
+
+|Contact avec l'équipe zVault
+|Rédige le brouillon de message/issue
+|Envoie effectivement l'e-mail ou publie l'issue, sauf si un connecteur (GitHub, e-mail) est relié à la session
+|===
+
+=== Choix du NAS de test
+
+Le critère qui prime pour un NAS de *test* n'est pas « lequel je voudrais utiliser en production plus tard », mais « lequel minimise le risque et la complexité pendant les sprints 0 à 6 ». Sur cette base, deux modèles se disputent la place, et le choix retenu est le DXP2800.
+
+[cols="2,3,3", options="header"]
+|===
+|Critère |DXP2800 |DXP4800 Plus
+
+|Prix (diskless, tarif constaté juillet 2026)
+|≈ 330 €
+|≈ 620 €
+
+|Baies
+|2 (suffisant pour un pool ZFS en miroir, largement assez pour valider le comportement des LED et le stockage)
+|4
+
+|CPU
+|Intel N100 (4 cœurs, plateforme très répandue, déjà éprouvée sous FreeBSD via de nombreux boîtiers pfSense/OPNsense)
+|Intel Pentium Gold 8505 (5 cœurs)
+
+|Réseau
+|1x 2,5 GbE uniquement — chipset généraliste, support FreeBSD mature
+|1x 2,5 GbE + 1x 10 GbE (Aquantia/Marvell AQC113, pilote FreeBSD encore qualifié de « development preview »)
+
+|Support LED déjà rétro-ingénié (`miskcoo/ugreen_leds_controller`)
+|Oui, modèle explicitement testé
+|Oui, modèle explicitement testé
+
+|Documentation communautaire (installations FreeBSD/Linux tierces)
+|Correcte
+|La plus riche à ce jour (fil dédié sur le forum TrueNAS, article de conversion en routeur OPNsense, guides d'installation détaillés)
+
+|Stockage interne dédié (pertinent pour la phase 4, remplacement du firmware interne)
+|*Confirmé (sprint 0)* : eMMC 32 Go (`mmc0`, `MMC32G 29.2 GiB`, HS200), partitionné en 8 partitions (`p1`-`p8`) plus une `p128` — pas de SSD dédié comme sur le DXP4800 Plus
+|SSD 128 Go embarqué, confirmé par la fiche produit
+|===
+
+=== Relevé matériel confirmé (sprint 0)
+
+Premier redémarrage du DXP2800 avec un écran HDMI branché : le journal de démarrage texte du noyau Linux d'UGOS s'est affiché en clair (voir sous-section précédente), ce qui a permis de relever des informations matérielles précises, bien plus fiables que les suppositions faites en v0.1-v0.7. Ce relevé constitue le point de départ concret de `docs/hardware-notes.adoc` et `docs/protocol-i2c-leds.adoc` une fois le dépôt `ugreen-hal` créé (sprint 0/1) ; un premier jet de ces deux fichiers a été préparé et est prêt à être poussé dans le dépôt.
+
+[cols="2,3,3", options="header"]
+|===
+|Composant |Relevé exact |Conséquence pour le projet
+
+|Carte réseau 2,5 GbE
+|Pilote Linux `igc`, contrôleur `0000:02:00.0`, lien PCIe 5.0 GT/s x1 — famille Intel I225/I226
+|Excellente nouvelle : `igc(4)` est un pilote FreeBSD mainline, mature, déjà dans le noyau `GENERIC`. Aucun travail de portage nécessaire pour le réseau.
+
+|Stockage interne
+|`mmc0`, carte eMMC HS200, `MMC32G`, 29,2 Gio, partitions `p1`-`p8` et `p128`
+|Corrige l'hypothèse d'un SSD interne (propre au DXP4800 Plus) : sur le DXP2800, c'est de l'eMMC. À garder en tête pour la phase 4 (remplacement du firmware interne) — l'accès et l'écriture sur de l'eMMC diffèrent légèrement d'un SSD SATA/NVMe.
+
+|Contrôleur LED
+|`i2c_dev`, module `leds-mcu` (`ug_led_driver_init`), détection `leds_ugreen_detect:i2c chipid:c5b2`, adresse `leds_ugreen_detect:i2c addr:0x3a`, produit détecté `DXP2800`
+|C'est la donnée la plus précieuse du relevé : elle confirme et précise (chip ID `0xc5b2`, adresse I2C `0x3a`) exactement ce que documentait déjà `miskcoo/ugreen_leds_controller` côté Linux. Base directe pour `docs/protocol-i2c-leds.adoc` et le sprint 3.
+
+|Boutons
+|`input: ug gpiokey as /devices/platform/ug-gpiokey.0/input/input9`
+|Contrairement à une hypothèse initiale, les boutons ne passent pas par le bus I2C mais par un pilote de plateforme GPIO dédié (`ug-gpiokey`). Sous FreeBSD, cela oriente vers la couche `gpio(4)`/`gpioiic` plutôt que vers `iic(4)` pour ce composant précis.
+
+|Puce de supervision matérielle (watchdog, buzzer, capteurs)
+|`Found chip IT8613 rev 8613.12`, watchdog exposé comme `IT87 WDT` (`/dev/watchdog0`, timeout matériel 20 min), ligne `DXP2800 SATA&beep init`
+|Chip ITE IT8613 identifié avec précision. Vérification faite : FreeBSD reconnaît déjà l'identifiant IT8613 dans son framework `superio(4)` (patch accepté), mais le pilote complet de supervision (`it8613hwm(4)`, températures/ventilateurs/watchdog) existe en *review Phabricator non finalisée* (bloquée par un conflit avec le code thermique ACPI). C'est une piste de contribution très concrète pour le sprint 4 : reprendre/finaliser ce travail existant plutôt que repartir de zéro.
+
+|Carte mère / firmware
+|DMI : `Vendor: American Megatrends International, LLC.`, `Product Name: DXP2800`, `Version: DXP2800 V1.2 251215`
+|BIOS AMI standard, cohérent avec un PC x86 classique. Renforce la conclusion que le BIOS/UEFI doit afficher son écran POST sur ce même port HDMI comme n'importe quel mini PC.
+
+|Système UGOS lui-même
+|`Debian GNU/Linux 12 (bookworm)`, `systemd 252.33-1~deb12u1`, hostname `DXP2800-2CFF`, services propriétaires (`ugdriver`, `humonitor`, `ugbus`, `storage_serv`, `discovery_serv`, `ugreen-psql` sur PostgreSQL, etc.)
+|Confirme qu'UGOS est un Debian largement personnalisé plutôt qu'un système entièrement maison — cohérent avec le fait que le matériel sous-jacent reste un PC x86 standard, point déjà établi en v0.1.
+|===
+
+Deux nouvelles ressources à ajouter à la liste de veille, directement issues de ce relevé :
+
+* Review Phabricator FreeBSD `D39969` (« superio(4): Add device ID for ITE IT8613 »), acceptée. +
+https://reviews.freebsd.org/D39969
+* Reviews Phabricator FreeBSD `D39970`/`D39971` (« it8613hwm(4): Add new driver for ITE IT8613 hardware monitor » + page de manuel), en statut « Changes Planned », bloquées par un conflit avec le code thermique ACPI — piste de contribution directe pour le sprint 4. +
+https://reviews.freebsd.org/D39970
+
+Le raisonnement : la puce 10GbE du DXP4800 Plus est justement le composant le moins bien supporté par FreeBSD à l'heure actuelle. L'introduire dès le NAS de test ajoute une source d'échec et d'incertitude qui n'a rien à voir avec le sujet réellement étudié dans les premiers sprints (le contrôleur LED). Le DXP2800 isole mieux le problème : sa seule interface réseau repose sur un chipset déjà bien pris en charge, ce qui permet de savoir rapidement si un échec vient de zVault/FreeBSD en général ou spécifiquement du matériel UGREEN. Son coût deux fois moindre est également pertinent pour un premier appareil « sacrifiable » pendant les phases où le risque de blocage ou de corruption reste réel (sprint 5 en particulier, avant tout remplacement de firmware interne).
+
+Le DXP4800 Plus garde tout son intérêt, mais plus tard : c'est le modèle le plus demandé par la communauté (cf. le fil de discussion TrueNAS déjà repéré) et donc la cible naturelle de la phase 5 (généralisation multi-modèles), une fois la méthode validée sur le DXP2800.
+
+=== Matériel complémentaire à prévoir
+
+Au-delà du NAS de test lui-même, quatre accessoires évitent de se retrouver bloqué en cours de route.
+
+[cols="2,4,2", options="header"]
+|===
+|Accessoire |Rôle |Recommandation
+
+|Adaptateur réseau USB de secours
+|Garder un accès réseau (donc SSH) même si le port 2,5 GbE embarqué est mal détecté, mal configuré ou en cours de test pendant les sprints. Sans ce filet de sécurité, la moindre erreur réseau oblige à rebrancher un écran/clavier pour tout diagnostiquer.
+|Un adaptateur USB-A/USB-C vers Gigabit Ethernet à base de chipset Realtek RTL8152/8153 (pilote `ure(4)`, généralement reconnu sans configuration particulière) ou ASIX AX88179 (pilote `axge(4)` ; fonctionne bien mais un modèle vendu par UGREEN lui-même nécessite un réglage `hw.usb.quirk` documenté sur le forum FreeBSD — pas bloquant, juste à connaître). Le débit Gigabit suffit largement pour de la gestion à distance.
+
+|Support de démarrage pour l'installeur
+|Démarrer le NAS sur zVault sans toucher au SSD interne (sprint 2).
+|Une clé USB 3.0 de 16 Go minimum. Pas besoin de plus : c'est un support de démarrage, pas un support d'exécution prolongée.
+
+|Support d'exécution persistant
+|Faire tourner zVault de façon durable pendant plusieurs semaines de test (sprints 2 à 5), avec un vrai pool ZFS.
+|Un disque SSD externe USB 3.0, 120 à 250 Go suffisent. À privilégier par rapport à une simple clé USB : une clé bon marché s'use vite sous une charge d'écriture continue (journaux système, métadonnées ZFS), ce qui provoquerait des pannes difficiles à distinguer d'un vrai bug logiciel.
+
+|Support de sauvegarde
+|Stocker l'image complète du SSD interne (~128 Go pressenti) et les sauvegardes intermédiaires, séparément du support d'exécution.
+|Un disque externe (HDD ou SSD) de 500 Go à 1 To, dédié uniquement aux sauvegardes, jamais utilisé comme support de démarrage ou d'exécution.
+
+|Pont WiFi vers Ethernet — *ajouté en v1.0, prérequis*
+|Le bureau de travail n'a pas de prise Ethernet filaire, uniquement du WiFi. Or ni le DXP2800 ni l'IP-KVM retenu (GL.iNet Comet GL-RM1) n'ont de WiFi intégré : sans ce pont (ou un câble tiré depuis la box), ni le SSH quotidien (sprint 0 et suivants) ni l'IP-KVM ne peuvent fonctionner.
+|Un routeur de voyage GL.iNet en mode « WISP » (client WiFi → ports Ethernet), par exemple le GL-SFT1200 (Opal, ports Gigabit) plutôt que le GL-MT300N-V2 (Mango, limité à 100 Mbps) : https://www.amazon.fr/GL-iNet-GL-SFT1200-Routeur-s%C3%A9curis%C3%A9-r%C3%A9p%C3%A9teur/dp/B09N72FMH5. Alternative toujours préférable si possible : tirer un câble Ethernet physique jusqu'au bureau, plus simple, plus fiable, et ce qu'un NAS préfère de toute façon.
+|===
+
+=== Liste d'achat (matériel complémentaire, projet `papilip`)
+
+[NOTE]
+====
+Amazon bloque la lecture automatisée de ses pages produit (règles `robots.txt`) : les prix ci-dessous proviennent de résultats de recherche et sont donnés à titre indicatif, à vérifier au moment de l'achat (prix, disponibilité, vendeur). Les références de produit (chipset, capacité) sont en revanche fiables et sont le critère le plus important pour la compatibilité FreeBSD.
+====
+
+[cols="2,4,2", options="header"]
+|===
+|Article |Lien |Prix indicatif
+
+|Adaptateur USB vers Gigabit Ethernet (TP-Link UE300, chipset Realtek RTL8153, pilote `ure(4)` reconnu nativement par FreeBSD)
+|https://www.amazon.fr/TP-Link-Adaptateur-UE300-Ordinateur-Chromebook/dp/B00V4BGDKU
+|≈ 18-20 €
+
+|Clé USB 3.1 32 Go (SanDisk Ultra Fit) pour l'installeur zVault
+|https://www.amazon.fr/SanDisk-Ultra-allant-jusqu%C3%A0-130Mo/dp/B077VXV323
+|≈ 9-12 €
+
+|SSD externe USB 250 Go (SanDisk Extreme Portable) pour l'exécution persistante de zVault
+|https://www.amazon.fr/SanDisk-SDSSDE60250GG25-Disque-Flash-Interne/dp/B078SVRH4B
+|≈ 35-45 €
+
+|Disque externe 1 To (WD Elements) dédié aux sauvegardes du SSD interne
+|https://www.amazon.fr/Elements-Disque-Portable-Externe-Noir/dp/B06VVS7S94
+|≈ 50-60 €
+
+|Pont WiFi vers Ethernet (GL.iNet GL-SFT1200 « Opal ») — *ajouté en v1.0, prérequis avant le sprint 0 si aucun câble Ethernet n'est tiré jusqu'au bureau*
+|https://www.amazon.fr/GL-iNet-GL-SFT1200-Routeur-s%C3%A9curis%C3%A9-r%C3%A9p%C3%A9teur/dp/B09N72FMH5
+|≈ 40-50 €
+
+|IP-KVM — *acheté (v1.3)* : GL.iNet Comet (GL-RM1)
+|Achat effectué. Rappel matériel (RM1, Ethernet uniquement, pas de WiFi) : il devra être branché en HDMI + USB sur le NAS, et sur un port LAN du GL-SFT1200 pour sa propre connectivité réseau.
+|≈ 110 € (acheté)
+
+|Switch KVM HDMI 4 entrées — *commandé (v1.6)* : TESmart HKS401-P23-V2 (4K@60Hz, émulation EDID confirmée, USB 3.0, commutation par bouton/molette/raccourci/IR). Anticipe le sprint 5 (généralisation multi-modèles) : permettra de brancher plusieurs NAS UGREEN sur le même écran/clavier/Comet, en commutant physiquement d'une entrée à l'autre.
+|https://www.tesmart.com/products/hks401-p23-v2
+|≈ 170 $ US (commandé)
+|===
+
+Budget total indicatif : environ 430 à 470 € pour les sept articles retenus (adaptateur réseau, clé USB, SSD externe, disque de sauvegarde, pont WiFi-Ethernet, IP-KVM Comet GL-RM1, switch KVM 4 entrées — ces deux derniers achetés/commandés, v1.3 et v1.6). Rien de ce matériel n'est spécifique à un seul modèle UGREEN : il resservira tel quel pour le sprint 5 (généralisation multi-modèles).
+
+[NOTE]
+====
+Pourquoi le GL.iNet Comet (GL-RM1) plutôt que le JetKVM initialement envisagé (v1.2) : au moment de l'achat, le JetKVM est en rupture chez la plupart des revendeurs européens (Welectron, iKoolcore), ne laissant que des options américaines ou des annonces Amazon de marques tierces (« BitPC », « SZ ») dont l'authenticité n'a pas pu être vérifiée — ces pages Amazon bloquent la lecture automatisée, donc ni le prix ni le vendeur exact n'ont pu être confirmés depuis cette session. Le Comet (GL-RM1), lui, est disponible avec certitude sur la boutique officielle européenne de GL.iNet (109,99 €, TVA incluse, livraison France), la même marque que le pont WiFi-Ethernet déjà retenu — un seul fournisseur de confiance pour les deux appareils. Autre avantage concret : le Comet intègre nativement le support Tailscale, ce qui permettra un accès distant sécurisé sans configuration de redirection de port sur le boîtier GL-SFT1200. Seul point de comparaison en faveur du JetKVM relevé dans les tests indépendants : un petit écran local sur l'appareil lui-même, absent du Comet — sans conséquence pour notre usage.
+
+*Ordre de mise en service recommandé, une fois les deux boîtiers reçus* : configurer d'abord le GL-SFT1200 en mode Extender (voir sous-section « Pont WiFi vers Ethernet », et rejoindre le WiFi du bureau), puis brancher le Comet (GL-RM1) sur un de ses ports LAN pour lui donner un accès réseau, et enfin brancher le Comet en HDMI + USB sur le NAS. Le Comet obtiendra alors une adresse IP directement du routeur de la maison, comme le NAS et votre Mac — accessible en HTTPS depuis un navigateur, avec Tailscale à activer si un accès depuis l'extérieur du domicile devient utile plus tard.
+====
+
+=== Accès à distance à l'écran du NAS (« piloter depuis votre ordinateur »)
+
+Le besoin recouvre en réalité deux usages différents, qui n'ont pas la même solution : le pilotage au quotidien une fois FreeBSD démarré et connecté au réseau, et l'accès aux étapes où il n'y a justement pas encore de réseau utilisable (BIOS, menu de démarrage, panique noyau, mauvaise configuration réseau).
+
+[cols="2,3,3", options="header"]
+|===
+|Situation |Solution recommandée |Remarques
+
+|Usage quotidien, une fois zVault démarré
+|SSH classique, depuis votre Mac, vers l'adresse IP du NAS
+|Couvre l'essentiel du travail des sprints 2 à 6. Ne nécessite aucun matériel supplémentaire.
+
+|Accès dès le BIOS/menu de démarrage, avant tout réseau, ou en cas de blocage
+|*Écran HDMI + clavier USB branchés directement sur le NAS* (matériel déjà en place, sprint 0)
+|Couvre exactement le même besoin qu'un IP-KVM : BIOS, sélection du périphérique de démarrage, menu du chargeur FreeBSD/zVault, console en cas de panne réseau. Aucune souris nécessaire — tout ce qui se pilote à cette étape (BIOS, menu de boot, `loader` FreeBSD, console texte) fonctionne uniquement au clavier.
+
+|IP-KVM, pour le confort d'un pilotage depuis votre Mac sans vous déplacer
+|*Acheté (v1.3)* : GL.iNet Comet (GL-RM1), à brancher en HDMI + USB sur le NAS, et sur un port LAN du GL-SFT1200 pour sa propre connectivité (l'appareil n'a pas de WiFi intégré)
+|Le besoin technique était déjà couvert par l'écran/clavier direct ; ce choix est fait par confort et pour préparer un accès à distance sécurisé via Tailscale (intégré au Comet), utile si le NAS change d'emplacement plus tard.
+
+|Alternative plus radicale mais non confirmée pour ce modèle
+|Console série via un header UART sur la carte mère, si un tel header existe et est accessible en ouvrant le boîtier
+|À vérifier physiquement avant d'en dépendre : aucune documentation communautaire n'a été repérée à ce jour sur un header série pour la gamme DXP2800. À explorer une fois le boîtier ouvert pour l'installation des disques, pas avant.
+|===
+
+[NOTE]
+====
+Révision de la recommandation IP-KVM (v0.9 → v1.2) : avec un écran HDMI et un clavier USB déjà branchés en permanence sur le NAS, le besoin qui justifiait un IP-KVM — accéder au BIOS/menu de boot/console avant que le réseau ne soit disponible — était déjà couvert, à la condition d'accepter d'être physiquement devant la machine pour ces cas-là. L'achat a été repoussé un temps (v0.9), puis confirmé (v1.2) par choix de confort plutôt que par nécessité technique : piloter depuis le Mac sans se déplacer, et profiter du support Tailscale intégré au GL.iNet Comet (GL-RM1) retenu pour un accès distant propre. Sur la question de la souris : elle reste inutile pour ce projet. Tout ce qui se pilote avant que zVault ne soit démarré et joignable en SSH (BIOS AMI, menu de sélection du périphérique de boot, chargeur FreeBSD `loader`, console texte) se navigue entièrement au clavier ; même un IP-KVM ne servirait ici que sa fonction clavier, jamais sa fonction souris.
+====
+
+[NOTE]
+====
+Point de vigilance sur la sortie HDMI du DXP2800 : un utilisateur du forum communautaire UGREEN rapporte que, *sous UGOS*, la sortie HDMI n'est exploitable qu'au travers de l'application mobile du constructeur, en version bêta. Cette limitation semble toutefois relever d'un choix logiciel d'UGOS (un NAS n'a normalement pas besoin d'afficher grand-chose une fois démarré) plutôt que d'une limitation matérielle : le BIOS/UEFI d'un NAS UGREEN reste un firmware x86 standard, qui doit en principe afficher son écran de démarrage sur le port HDMI comme n'importe quel mini PC, indépendamment d'UGOS. La marche à suivre prudente est donc de *vérifier ce point en premier*, avec un simple écran HDMI classique emprunté (avant tout achat d'IP-KVM) : si le BIOS et le menu de démarrage s'affichent normalement, l'IP-KVM fonctionnera de la même façon. Ce test coûte 0 € et évite un achat inutile si, par extraordinaire, la sortie vidéo s'avérait réellement indisponible avant le démarrage d'UGOS.
+
+*Constat confirmé (test réel, sprint 0)* : au premier essai, l'écran affichait l'interface de cast vidéo UGOS (« HDMI直连播放 »), sans rien dire du comportement au démarrage. Au redémarrage suivant, avec le même écran branché, la sortie HDMI a affiché l'intégralité du journal de démarrage texte du noyau Linux et de systemd d'UGOS (messages `ahci`, `scsi`, `usb`, `mmc0`, montage des systèmes de fichiers, démarrage des services, jusqu'au login). *Question ouverte pour vous* : avez-vous fait quelque chose de particulier pour obtenir cet affichage détaillé (combinaison de touches, bouton à l'arrière, ou simplement un redémarrage normal) ? Cela vaut la peine d'être noté dans le journal de bord, pour savoir si ce mode verbeux est le comportement par défaut ou déclenché volontairement.
+
+Conclusion pratique : la sortie HDMI du DXP2800 est bien une sortie vidéo standard au niveau noyau (probablement un framebuffer EFI/VESA classique, écrit par `fbcon` sous Linux), pas seulement une fonction applicative UGOS. Cela lève le doute technique posé plus haut : un IP-KVM verrait, avec une très forte probabilité, aussi bien l'écran BIOS/UEFI que le futur menu de démarrage USB et la console de démarrage de FreeBSD/zVault. *Mise à jour v0.9 → v1.2* : la question de l'achat ne s'est plus posée dans les mêmes termes une fois l'écran/clavier direct en place (achat repoussé), avant d'être finalement confirmée par choix de confort — voir la sous-section suivante et la liste d'achat pour le choix final (GL.iNet Comet GL-RM1).
+====
+
+=== Sprint 0 (48 à 72 heures) — Amorçage immédiat
+
+Objectif : lever toute ambiguïté avant d'investir du temps de développement, avec un minimum d'actions physiques.
+
+[cols="1,4,2", options="header"]
+|===
+|# |Action |Responsable
+
+|1
+|Choisir le nom définitif du projet et créer le dépôt Git distant (proposition : `ugreen-hal`, pour « Hardware Abstraction Layer », qui sera intégré à `zvio-os` une fois mature plutôt que d'être un fork complet de zVault dès le départ).
+|*Fait (v1.5)* : dépôt créé sous `github.com/aloli/ugreen-hal`, en lecture publique, contenu initial poussé (commit « Initial commit: cadrage projet, relevés matériels DXP2800, protocole LED »)
+
+|2
+|Ouvrir une discussion/issue sur `github.com/zvaultio/Community` (canal privilégié, c'est celui que l'équipe utilise le plus visiblement) et/ou envoyer un message à `team@zvault.io`, pour signaler l'intention de travailler sur le support UGREEN NASync et vérifier qu'aucun travail similaire n'est en cours. *Ajout v1.8* : même démarche à prévoir côté XigmaNAS, via un ticket sur `sourceforge.net/p/xigmanas/tickets/`, une fois le message zVault envoyé (pas de blocage à faire les deux en même temps, mais pas d'urgence à le faire avant que le pilote existe).
+|Claude prépare le brouillon (voir ci-dessous) ; vous ouvrez l'issue ou envoyez l'e-mail
+
+|3
+|Réaliser une sauvegarde complète et vérifiée du NAS de test choisi (image bit à bit du SSD interne, avec somme de contrôle), avant toute autre manipulation.
+|*Non applicable (v1.6)* : le NAS de test est neuf, sans disque installé — aucune donnée à perdre. `scripts/backup-nas.sh` reste dans le dépôt pour un usage ultérieur (avant la phase 4, remplacement du firmware interne, une fois des disques et des données réelles en jeu), mais ne bloque plus la suite.
+
+|4
+|Réunir le matériel complémentaire (voir sous-section dédiée juste après) : adaptateur réseau USB de secours, clé USB 16 Go pour l'installeur, SSD externe pour l'exécution persistante, disque externe pour les sauvegardes. Écran HDMI + clavier USB déjà branchés directement sur le NAS : *fait*, et retenu comme solution d'accès BIOS/console plutôt qu'un IP-KVM (voir sous-section « Accès à distance à l'écran »).
+|Vous (fait)
+
+|5
+|Télécharger l'image ISO zVault (version `13.3-MASTER-202505042329`, disponible sur `github.com/zvaultio/Community/releases`) et préparer la clé USB bootable via `dd` (voir `scripts/prepare-usb-zvault.sh`, mis à jour v1.5 avec la commande exacte tirée du wiki officiel du projet).
+|Vous, avec le script/les commandes fournis
+
+|6
+|Premier démarrage du NAS sur la clé USB zVault, sans toucher au SSD interne, et compte-rendu de ce qui s'affiche (boot réussi ou non, messages d'erreur, disques détectés, comportement de l'adaptateur réseau USB de secours).
+|Vous, compte-rendu retranscrit à Claude Code pour analyse
+|===
+
+Livrable de ce sprint : un dépôt Git initialisé, un contact établi avec zVault, et un premier verdict sur le démarrage externe (la sauvegarde du NAS n'est plus un prérequis, voir action 3 ci-dessus).
+
+=== Message de prise de contact avec zVault (brouillon, v1.5)
+
+À publier de préférence comme nouvelle *issue* sur `github.com/zvaultio/Community` (canal le plus actif de l'équipe) ; la même formulation convient aussi pour un e-mail à `team@zvault.io` en cas d'absence de réponse sur GitHub.
+
+[source]
+----
+Objet : Intention de contribuer un support matériel pour les NAS UGREEN NASync
+
+Bonjour,
+
+Je travaille actuellement sur le support matériel des NAS UGREEN NASync
+(à commencer par le DXP2800) en vue d'une contribution à zVault. L'objectif
+n'est pas de créer une distribution concurrente, mais de documenter et
+porter les composants spécifiques à cette gamme qui manquent aujourd'hui
+à une base FreeBSD standard : contrôleur LED de façade/baies (bus SMBus
+I801, protocole déjà rétro-documenté à partir du pilote Linux de référence
+miskcoo/ugreen_leds_controller), boutons (GPIO), et supervision matérielle
+(chip ITE IT8613, pour lequel un pilote FreeBSD superio(4)/it8613hwm(4)
+existe déjà en review amont, statut « Changes Planned »).
+
+Le travail est documenté au fur et à mesure ici :
+https://github.com/aloli/ugreen-hal
+
+Avant d'aller plus loin, je voulais vérifier auprès de vous :
+- si un travail similaire sur le support UGREEN NASync est déjà en cours
+  côté zVault (pour éviter de dupliquer un effort) ;
+- quelle serait, à terme, la forme de contribution la plus utile pour
+  l'équipe : module additionnel à zvio-os, ou intégration plus directe.
+
+Merci pour le travail déjà accompli sur zVault — c'est exactement la
+continuité de TrueNAS CORE que je cherchais.
+
+Cordialement,
+Philippe
+----
+
+=== En attendant la livraison du matériel réseau (5 jours, v1.4)
+
+Commande passée le 15/07/2026 (GL-SFT1200 + Comet GL-RM1), livraison estimée mardi suivant. Ce délai n'est pas un temps mort : plusieurs actions du sprint 0/1 ne dépendent ni du pont WiFi ni du KVM et peuvent avancer dès maintenant.
+
+* *Fait* : étude approfondie du protocole du contrôleur LED à partir du code source de référence (voir sprint 3, étape 3.1) — prépare le terrain pour aller plus vite une fois le NAS accessible en SSH.
+* *Fait (v1.5)* : dépôt Git `ugreen-hal` créé sur GitHub sous le compte `aloli`, en lecture publique, avec `README.adoc`, `LICENSE`, `CONTRIBUTING.adoc`, `docs/journal.adoc`, `docs/hardware-notes.adoc`, `docs/protocol-i2c-leds.adoc` et le squelette `src/cli/`, `scripts/`, `tests/`, `.github/workflows/ci.yml` poussés (premier commit sur la branche `development`).
+* *Fait (v1.5)* : recherche des modalités précises de téléchargement/démarrage de zVault — voir la nouvelle sous-section « Démarrage de zVault » du sprint 1 ci-dessous, et `scripts/prepare-usb-zvault.sh` mis à jour avec la commande `dd` officielle.
+* *À faire, sans dépendance matérielle* : ouvrir l'issue/discussion de prise de contact sur `github.com/zvaultio/Community` (ou envoyer le message à `team@zvault.io`) — brouillon fourni ci-dessous, section « Message de prise de contact avec zVault ».
+* *Optionnel, déjà possible avec l'écran/clavier direct* : poursuivre le sprint 2 (démarrage externe zVault) sans attendre le réseau, puisque l'écran et le clavier branchés directement sur le NAS suffisent pour valider qu'il démarre sur une clé USB — le réseau ne devient nécessaire que pour le SSH quotidien et l'accès du Comet. Reste à déterminer, par observation directe au premier démarrage sur clé USB : la touche d'accès au menu de boot du BIOS AMI du DXP2800 (candidats usuels : Suppr/F2 pour le setup, F7/F11/Échap pour le menu de démarrage — à confirmer, non documenté officiellement par UGREEN).
+
+=== Démarrage de zVault : où trouver l'image et comment préparer la clé USB (v1.5)
+
+[NOTE]
+====
+Cette sous-section documente le résultat d'une recherche effectuée le 15/07/2026 sur les sources officielles du projet (site `zvault.io`, dépôt `github.com/zvaultio/Community` et son wiki). Elle remplace les hypothèses génériques des versions précédentes de ce document par des informations vérifiées.
+====
+
+* *Site officiel du projet* : `https://zvault.io/` — attention à ne pas confondre avec `zvault.cloud`, un gestionnaire de secrets sans rapport qui porte malheureusement le même nom.
+* *Téléchargement de l'image* : le fichier ISO se trouve sur la page de releases GitHub, `https://github.com/zvaultio/Community/releases/tag/zVault-13.3-MASTER-202505042329-ca844f8808` (version actuellement disponible, republiée en mai 2025 après le différend de copyright avec iXsystems évoqué plus haut — vérifier au moment de télécharger qu'une version plus récente n'a pas été publiée entre-temps).
+* *Préparation de la clé USB sur macOS*, procédure officielle documentée par le wiki du projet (`github.com/zvaultio/Community/wiki/zVault-Installation`) :
++
+[source,shell]
+----
+# 1. Lister les disques AVANT de brancher la clé USB
+diskutil list
+
+# 2. Brancher la clé USB, puis relister pour repérer le nouveau périphérique
+diskutil list
+# → notez le nom exact, par ex. /dev/disk4 (PAS /dev/disk4s1 : bien le disque entier)
+
+# 3. Écrire l'image (⚠ opération destructrice, voir avertissement ci-dessous)
+sudo dd if=zVault-13.3-MASTER-202505042329-ca844f8808.iso of=/dev/diskN bs=1M conv=sync
+----
++
+[IMPORTANT]
+====
+La commande `dd` écrase intégralement le périphérique cible sans aucune confirmation ni corbeille possible. Avant de l'exécuter, vérifiez au moins deux fois, via `diskutil list`, que `/dev/diskN` désigne bien la clé USB de test et jamais le disque interne du Mac. C'est une manipulation que vous devez effectuer vous-même dans votre Terminal : elle touche à un périphérique bloc physique de votre machine, hors de portée de cette session.
+====
+* *Démarrage du DXP2800 sur la clé* : non documenté officiellement par UGREEN ni par zVault à ce stade. Le firmware est un BIOS AMI standard (confirmé par les relevés du sprint 0, voir `docs/hardware-notes.adoc`) ; les touches usuelles pour ce type de BIOS sont *Suppr* ou *F2* pour entrer dans le setup, et *F7*, *F11* ou *Échap* pour le menu de sélection du périphérique de démarrage — à confirmer par observation directe une fois la clé branchée et le NAS redémarré, en surveillant l'écran HDMI dès l'allumage (le splash UGREEN laisse une fenêtre de quelques secondes pour appuyer sur la bonne touche).
+* *Pré-requis avant installation* (rappelés par le wiki officiel) : sauvegarde des données importantes déjà couverte par le sprint 0 ; réunir les informations réseau (passerelle, domaine, IP des serveurs DNS) pour la configuration post-installation.
+
+=== Sprint 1 (semaines 1-2) — Dépôt de projet et environnement de développement
+
+Structure de dépôt proposée, à créer dès ce sprint :
+
+[source]
+----
+ugreen-hal/
+├── README.adoc              # présentation (anglais), statut, modèles couverts
+├── README.fr.adoc           # présentation (français)
+├── LICENSE                  # BSD-2-Clause (compatible FreeBSD, zVault et XigmaNAS)
+├── CONTRIBUTING.adoc
+├── docs/
+│   ├── journal.adoc          # journal de bord chronologique des sessions
+│   ├── hardware-notes.adoc   # relevés matériels par modèle (revision carte, etc.)
+│   └── protocol-i2c-leds.adoc
+├── src/
+│   └── cli/                  # cœur du HAL : utilitaire en espace utilisateur (C),
+│                              # indépendant de la distribution (smbus(4)/gpio(4) uniquement)
+├── integrations/              # ajouté en v1.8 : une couche fine par distribution cible
+│   ├── zvault/                # empaquetage comme module zvio-os/zvio-middleware
+│   └── xigmanas/               # extension au format XigmaNAS (etc/ + gui/ PHP + init + version)
+├── scripts/
+│   ├── backup-nas.sh
+│   └── prepare-usb-zvault.sh
+├── tests/
+└── .github/workflows/ci.yml  # build automatique via vmactions/freebsd-vm
+----
+
+Environnement de développement : deux niveaux, à ne pas confondre.
+
+* *Vérification de compilation rapide* (dans cette session Claude Code ou en local sur votre Mac) : une chaîne de cross-compilation Clang ciblant `x86_64-unknown-freebsd`, avec un sysroot FreeBSD téléchargé, permet de vérifier que le code C du pilote compile sans erreur avant même de le déployer. Utile pour aller vite, mais ne remplace pas un vrai test.
+* *Environnement FreeBSD réel* : une machine virtuelle FreeBSD/amd64 (via UTM/QEMU sur votre Mac, avec émulation logicielle puisque le Mac est en ARM et le NAS en x86_64) sert à valider que le code s'exécute correctement sous FreeBSD, mais *ne peut pas* se substituer au NAS physique pour tout ce qui touche au bus I2C : une carte mère UGREEN et son contrôleur LED ne s'émulent pas. La VM sert donc à fiabiliser la partie générique du code (structure du programme, appels système, gestion d'erreurs), le NAS physique reste indispensable pour valider le protocole matériel réel.
+* *Intégration continue* : mettre en place `vmactions/freebsd-vm` (action GitHub qui démarre une véritable VM FreeBSD dans le pipeline CI) dès que le dépôt existe, pour garantir que chaque contribution compile sous FreeBSD sans dépendre de votre machine locale.
+
+Livrable de ce sprint : dépôt structuré et poussé, CI qui compile un « hello world » FreeBSD avec succès, VM FreeBSD opérationnelle sur votre machine.
+
+=== Sprint 2 (semaines 2-4) — Preuve de concept : zVault en démarrage externe sur le NAS
+
+* Valider, sur le NAS de test démarré depuis la clé USB zVault (UGOS intact sur le SSD interne), les éléments suivants un par un : détection des baies de disques, ports SATA/NVMe, port(s) réseau 2,5 GbE, USB, capacité à créer un pool ZFS de test.
+* Documenter dans `docs/hardware-notes.adoc` tout ce qui fonctionne nativement sous zVault et tout ce qui ne fonctionne pas (LED, boutons, capteurs, 10 GbE le cas échéant) : cette liste devient directement le cahier des charges du sprint suivant.
+* Ouvrir, sur le dépôt `ugreen-hal`, une entrée « matrice de compatibilité » (même sous forme de simple tableau AsciiDoc au démarrage) pour le modèle de test.
+
+Livrable de ce sprint : zVault démarre et fonctionne pour l'usage NAS de base sur le matériel de test, avec une liste précise et documentée de ce qui manque encore.
+
+=== Sprint 3 (semaines 4-10) — Le cœur du projet : le pilote du contrôleur LED
+
+C'est le sprint le plus long et le plus incertain en durée ; il mérite d'être découpé en étapes courtes avec un point d'avancement à chaque itération.
+
+[cols="1,4", options="header"]
+|===
+|Étape |Contenu
+
+|3.1
+|*Fait par anticipation (v1.4)*, pendant l'attente de livraison du matériel réseau : Claude Code a lu et documenté le code source de référence `miskcoo/ugreen_leds_controller` (adresses SMBus, séquences d'octets, correspondance baie/LED) dans `docs/protocol-i2c-leds.adoc`. Correction notable par rapport à l'hypothèse initiale : le contrôleur est sur le bus *SMBus I801* (pilote FreeBSD probable : `ichsmb(4)`/`smbus(4)`, pas `iic(4)` seul).
+
+|3.2
+|Claude Code écrit un premier utilitaire en C pour FreeBSD, en espace utilisateur, qui ouvre `/dev/iic0` (couche `iic(4)`) et tente d'envoyer la même séquence que la version Linux.
+
+|3.3
+|Vous copiez ce binaire sur le NAS de test (démarré sous zVault) et l'exécutez, en observant si une LED réagit. Vous retranscrivez le résultat exact (rien, erreur, mauvaise LED, bon comportement) à Claude Code.
+
+|3.4
+|Boucle d'itération : Claude Code ajuste le code selon le retour, jusqu'à obtenir un contrôle fiable et répétable d'au moins une LED.
+
+|3.5
+|Une fois une LED maîtrisée, étendre à l'ensemble des LED (baies, alimentation, réseau) puis à la lecture d'état (si le contrôleur permet aussi de lire, pas seulement d'écrire).
+
+|3.6
+|Transformer l'utilitaire validé en un vrai pilote/service intégrable (par exemple un démon FreeBSD qui expose l'état via `devd`/`sysctl`, pour que ZFS puisse déclencher une LED d'erreur en cas de disque dégradé).
+|===
+
+Livrable de ce sprint : un pilote LED FreeBSD fonctionnel et documenté pour le modèle de test, avec un historique clair de la démarche de rétro-ingénierie (élément clé pour la crédibilité de la future contribution à zVault).
+
+=== Sprint 4 (semaines 10-12) — Boutons, buzzer, capteurs, watchdog
+
+Même méthode que le sprint 3, répétée composant par composant : hypothèse sur le mécanisme (I2C, GPIO, ACPI), prototype en espace utilisateur, test physique par vos soins, itération. Le relevé matériel du sprint 0 permet désormais de partir d'hypothèses précises plutôt que génériques :
+
+* *Capteurs, buzzer, watchdog* : tous portés par la puce ITE IT8613, déjà partiellement reconnue par le framework `superio(4)` de FreeBSD. Plutôt que d'écrire un pilote depuis zéro, ce sprint doit commencer par reprendre la review Phabricator `D39970`/`D39971` (bloquée par un conflit avec le code thermique ACPI), comprendre pourquoi elle bloque, et proposer un correctif. C'est un point d'entrée nettement plus efficace qu'un développement de pilote complet.
+* *Boutons* : le journal de démarrage montre qu'ils passent par un pilote de plateforme GPIO (`ug-gpiokey`), pas par I2C. Sous FreeBSD, cela oriente vers `gpio(4)` plutôt que `iic(4)` pour ce composant.
+* *Priorité suggérée* : d'abord le watchdog/capteurs (contribution FreeBSD amont déjà amorcée), puis les boutons (GPIO), puis le buzzer.
+
+=== Sprint 5 (semaines 12-14) — Intégration à zVault et tests de résilience
+
+* Adapter le pilote/service développé dans `ugreen-hal` (`src/cli/`, indépendant de la distribution) pour qu'il s'intègre proprement à `zvio-os`/`zvio-middleware` via `integrations/zvault/` (packaging, démarrage automatique, remontée d'état vers l'interface web héritée de TrueNAS CORE).
+* Construire une image zVault incluant ce support et la faire tourner en conditions réelles sur le NAS de test pendant plusieurs jours.
+* Exécuter le jeu de tests de résilience prévu en phase 3 du plan général (arrêt brutal, retrait d'un disque à chaud, scrub ZFS), avec vérification que les LED reflètent correctement chaque état.
+
+=== Sprint 5bis (semaines 14-16, ajouté v1.8) — Intégration à XigmaNAS
+
+* Porter le même cœur (`src/cli/`) vers XigmaNAS via `integrations/xigmanas/`, en suivant le schéma d'extension déjà établi par la communauté (`etc/` + `gui/` en PHP + script d'init + fichier `version`, voir « XigmaNAS — seconde cible d'intégration »).
+* Ce portage devrait être plus direct que l'intégration zVault : pas de middleware à traverser, la partie difficile (protocole SMBus, rétro-ingénierie) est déjà validée au sprint 3/5.
+* Rejouer le même jeu de tests de résilience que pour zVault, pour vérifier que le comportement des LED est cohérent sur les deux distributions.
+
+=== Sprint 6 (semaines 16-18) — Proposition aux communautés zVault et XigmaNAS
+
+* Préparer une pull request (ou un dépôt satellite documenté, selon ce que l'équipe zVault aura indiqué au sprint 0) présentant le support UGREEN pour zVault, avec documentation, matrice de compatibilité, et procédure de test pour que d'autres puissent reproduire.
+* Publier l'extension XigmaNAS (ticket SourceForge ouvert au sprint 0, à relancer avec le résultat concret) selon les usages de cette communauté — probablement un dépôt séparé référencé depuis `integrations/xigmanas/`, à l'image des extensions JRGTH déjà existantes, plutôt qu'une pull request dans l'arborescence principale.
+* Tenir compte des retours de revue de code des deux côtés, itérer — en gardant à l'esprit que les deux communautés peuvent réagir à des rythmes très différents.
+* C'est à ce stade, une fois le retour des deux communautés obtenu, qu'il devient pertinent d'envisager de proposer également le pilote générique (I2C/SMBus) en amont au projet FreeBSD lui-même, comme évoqué plus haut — ce serait alors la troisième et dernière étape de diffusion, bénéficiant automatiquement à zVault et XigmaNAS à la fois.
+
+=== Sprints ultérieurs (au-delà de la semaine 16)
+
+Correspondent aux phases 4 à 6 du plan général : remplacement du firmware interne sur le NAS de test (jamais avant que les sprints 0 à 6 soient stables et reproductibles), puis généralisation à un second modèle UGREEN, puis publication et animation de la communauté. Ils seront détaillés au même niveau de granularité une fois ce point atteint, plutôt que planifiés dans le détail dès maintenant — un plan trop précis à seize semaines d'échéance serait de toute façon peu fiable.
+
+=== Continuité du travail entre les sessions Claude Code
+
+Un point pratique à anticiper : chaque nouvelle session de travail avec Claude Code démarre sans mémoire des sessions précédentes, sauf à reprendre exactement cette conversation. Pour que le projet avance de façon fiable sur plusieurs semaines, il est recommandé de :
+
+* tenir `docs/journal.adoc` à jour à la fin de chaque session de travail (date, ce qui a été fait, ce qui reste ouvert, prochaine étape) ;
+* toujours partir de ce journal en début de session suivante, en le donnant à lire à Claude Code avant de reprendre le travail ;
+* garder ce plan (`plan-firmware-freebsd-ugreen-nas.adoc`) comme document de référence stable, et le journal comme complément vivant, plutôt que de faire évoluer le plan à chaque détail d'avancement.
+
+=== Récapitulatif des livrables
+
+[cols="1,3,2", options="header"]
+|===
+|Sprint |Livrable principal |Durée indicative
+
+|0
+|Dépôt initialisé, contact zVault établi, sauvegarde NAS vérifiée
+|48-72 heures
+
+|1
+|Arborescence de projet, CI FreeBSD fonctionnelle, VM de dev opérationnelle
+|1 à 2 semaines
+
+|2
+|zVault opérationnel en démarrage externe, matrice de compatibilité initiale
+|2 à 4 semaines
+
+|3
+|Pilote LED FreeBSD fonctionnel et documenté
+|6 semaines (poste le plus incertain)
+
+|4
+|Boutons, buzzer, capteurs, watchdog pris en charge
+|2 semaines
+
+|5
+|Intégration à zVault, tests de résilience validés
+|2 semaines
+
+|6
+|Contribution proposée à la communauté zVault
+|2 semaines
+|===
+
+== Ressources à étudier en priorité
+
+* zVault — site du projet (présentation, philosophie, contact). +
+https://zvault.io/
+* Organisation GitHub `zvaultio` (dépôts `zvio-os`, `zvio-middleware`, `zvio-webui`, `zvio-build`, `Community`). +
+https://github.com/zvaultio
+* Discussion GitHub sur l'avenir et la gouvernance de zVault. +
+https://github.com/zvaultio/Community/issues/14
+* Guide d'installation officiel de zVault (wiki), source de la commande `dd` reprise dans `scripts/prepare-usb-zvault.sh`. +
+https://github.com/zvaultio/Community/wiki/zVault-Installation
+* Page de téléchargement de l'image ISO actuellement disponible (13.3-MASTER-202505042329). +
+https://github.com/zvaultio/Community/releases/tag/zVault-13.3-MASTER-202505042329-ca844f8808
+* Récit du différend de copyright avec iXsystems et de la republication de zVault (forum FreeBSD). +
+https://forums.freebsd.org/threads/zvault-is-available-again-for-download.97910/
+* Article annonçant la naissance de zVault comme fork communautaire de TrueNAS CORE. +
+https://www.heise.de/en/news/TrueNAS-CORE-lives-on-Community-splits-off-open-source-fork-zVault-10390164.html
+* Annonce officielle iXsystems sur les plans TrueNAS pour 2026 (contexte de la bascule SCALE/Linux et statut de CORE). +
+https://www.truenas.com/blog/truenas-plans-for-2026/
+* Fil de discussion communautaire demandant un support UGREEN NASync sur le forum TrueNAS. +
+https://www.truenas.com/community/threads/ugreen-nasync-support.117567/
+* Wiki XigmaNAS, notamment la page dédiée à ZFS (option de repli mature). +
+https://www.xigmanas.com/wiki/doku.php?id=documentation:setup_and_user_guide:zfs
+* Dépôt amont OpenZFS (Linux et FreeBSD), pour une contribution à plus long terme des pilotes matures. +
+https://github.com/openzfs/zfs
+* Dépôt `miskcoo/ugreen_leds_controller` : référence principale pour le protocole I2C des LED sur DXP4800/6800/8800. +
+https://github.com/miskcoo/ugreen_leds_controller
+* Dépôt `meyergru/ugreen_dxp8800_leds_controller` : variante pour le DXP8800 Pro. +
+https://github.com/meyergru/ugreen_dxp8800_leds_controller
+* Dépôt `vamega/ugreen_dxp_leds_controller` : variante compatible DX4600 Pro / DXP4800/6800/8800. +
+https://github.com/vamega/ugreen_dxp_leds_controller
+* Dépôt `0x556c79/install_ugreen_leds_controller` et ses tickets (dont le support de l'iDX6011 Pro, protocole différent). +
+https://github.com/0x556c79/install_ugreen_leds_controller
+* Retour d'expérience TrueNAS SCALE sur DXP4800 : forum officiel TrueNAS. +
+https://forums.truenas.com/t/ugreen-dxp4800-plus-setup-tips/62519
+* Guide d'installation TrueNAS sur UGREEN. +
+https://nascompares.com/guide/truenas-on-a-ugreen-nas-installation-guide/
+* Retour d'expérience OPNsense (FreeBSD) sur DXP4800 Plus, preuve que le matériel de base démarre bien sous FreeBSD. +
+https://www.xda-developers.com/turned-ugreen-nas-opnsense-router-home/
+* État du pilote FreeBSD pour la puce réseau Aquantia AQC113. +
+https://github.com/Aquantia/aqtion-freebsd
+* Documentation et wiki XigmaNAS (base logicielle FreeBSD orientée NAS). +
+https://www.xigmanas.com/wiki/doku.php?id=xigmanas_users_hardware
+* Pages produits UGREEN NASync (spécifications matérielles par modèle). +
+https://nas.ugreen.com/pages/compare
+
+== Prochaine étape concrète
+
+*Mise à jour v1.8* : décision prise de viser *zVault et XigmaNAS* comme cibles d'intégration à part entière, plutôt qu'une principale et un repli (voir « Projets FreeBSD/ZFS existants » et « Phase 3 — Architecture logicielle »). Ce changement ne modifie rien aux actions immédiates ci-dessous : le cœur du HAL (`src/cli/`) reste le même quel que soit le nombre de distributions visées, et le développement continue de démarrer sur zVault en premier. L'ordre (zVault d'abord, XigmaNAS ensuite, plutôt qu'en parallèle) est désormais *confirmé par vous* — voir Phase 3.
+
+*Ajout v1.8, matériel de collection* : un catalogue comparatif des NAS UGREEN a été constitué (`docs/catalogue-nas-ugreen.adoc`) pour préparer les achats de la Phase 5. Second NAS recommandé pour l'instant : un second `DXP2800` (identique, zéro risque) ou un `DXP4800 Plus` (4 baies, en n'utilisant que son port 2,5 GbE) — le `DXP4800` de base initialement envisagé s'est révélé épuisé. Les variantes AMD `DXP2800 GT`/`DXP4800 GT` sont volontairement mises de côté pour plus tard (Phase 5, généralisation à une plateforme non-Intel), pas pour ce second achat.
+
+Il ne reste plus, dans l'ordre, que :
+
+* ouvrir l'issue de prise de contact sur `github.com/zvaultio/Community` (brouillon fourni ci-dessus) — seule action du sprint 0 encore réellement ouverte ; le ticket équivalent côté XigmaNAS (`sourceforge.net/p/xigmanas/tickets/`) n'est volontairement pas urgent, à envoyer une fois le pilote lui-même plus avancé ;
+* à réception du matériel réseau (GL-SFT1200 + Comet GL-RM1, estimée vers le 20/07), le mettre en service (voir « Ordre de mise en service recommandé » ci-dessus) ;
+* préparer la clé USB zVault (commande `dd` fournie ci-dessus) et tenter le premier démarrage externe, en notant la touche exacte du menu de boot du DXP2800.

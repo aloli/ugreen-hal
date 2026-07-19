@@ -48,6 +48,9 @@ La documentation technique détaillée (`docs/`) est rédigée en français pour
 |`docs/journal.adoc`
 |Journal daté des observations, décisions et étapes franchies.
 
+|`docs/plan-firmware-freebsd-ugreen-nas.adoc`
+|Plan de projet de référence : phases, sprints, architecture, risques.
+
 |`docs/catalogue-nas-ugreen.adoc`
 |Catalogue comparatif des NAS UGREEN disponibles, utilisé pour orienter les achats de matériel.
 
@@ -65,6 +68,9 @@ La documentation technique détaillée (`docs/`) est rédigée en français pour
 
 |`.github/workflows/ci.yml`
 |Intégration continue sous FreeBSD (via `vmactions/freebsd-vm`).
+
+|`CLAUDE.md`
+|Fichier de repérage pour Claude Code (le contenu de fond reste dans les documents AsciiDoc ci-dessus).
 |===
 
 == Licence
