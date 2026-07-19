@@ -113,13 +113,11 @@ Vérification faite le 19/07/2026 : les notes matérielles officielles de FreeBS
 
 Non, il n'est pas nécessaire d'acquérir toute la gamme. Les différences entre modèles sont surtout des paliers de CPU/RAM/nombre de baies, pas des familles de matériel radicalement différentes ; multiplier les achats démontrerait surtout que le pilote fonctionne sur des CPU Intel plus puissants, ce qui est un risque faible comparé aux vrais inconnus du projet (comportement SMBus, boutons, watchdog).
 
-*Pour le second NAS destiné à XigmaNAS, recommandation : le `DXP4800` (base, sans « Plus »).* Trois raisons :
+*Mise à jour du 19/07/2026 : le `DXP4800` (base) est actuellement épuisé*, à la fois sur la boutique officielle France (`nas-fr.ugreen.com`) et chez le revendeur Galaxus — pas seulement sur Amazon.fr. Ce n'est donc plus une option d'achat immédiate. Deux alternatives, par ordre de préférence :
 
-* Il est x86 Intel de la même famille que le DXP2800 (donc pas de nouveau risque de pilote CPU/PCH), tout en étant un modèle réellement différent (4 baies au lieu de 2, ce qui permet aussi de tester du RAID réel — utile pour la Phase 3 du plan, tests de résilience ZFS).
-* Il n'a pas de port 10 GbE, donc pas le risque Aquantia AQC113 qui avait fait écarter le DXP4800 Plus dès le sprint 0.
-* Il reste dans une gamme de prix raisonnable comparé aux modèles « Pro »/« Plus » haut de gamme.
+*Option la plus sûre : un second `DXP2800`* (confirmé en stock à 329,99 € sur `nas-fr.ugreen.com` à cette date). Strictement identique au premier, donc zéro risque matériel nouveau et disponible tout de suite. Moins intéressant pour la « généralisation à d'autres modèles » (Phase 5 du plan), mais suffisant pour disposer d'une deuxième unité physique dédiée à XigmaNAS pendant que la première reste sur zVault.
 
-*Repli plus prudent, si le `DXP4800` s'avère indisponible ou trop cher* : un second `DXP2800`, strictement identique au premier. Moins intéressant pour la « généralisation à d'autres modèles » (Phase 5 du plan), mais zéro risque matériel nouveau, et suffisant pour disposer d'une deuxième unité physique dédiée à XigmaNAS pendant que la première reste sur zVault.
+*Option à 4 baies, viable avec une réserve précise : le `DXP4800 Plus`* (confirmé en stock à 619,99 € sur `nas-fr.ugreen.com`). Il a bien un port 10 GbE au chipset Aquantia/Marvell AQC113 dont le pilote FreeBSD n'est *toujours* pas intégré en amont (vérifié le 19/07/2026 : le port tiers `net/aquantia-atlantic-kmod` reste en « Development Preview », dernière mise à jour le 05/10/2025, sans mainteneur assigné ; un pilote communautaire alternatif existe mais son propre auteur le qualifie d'instable). *Mais* ce modèle a aussi un second port, 2,5 GbE, probablement porté par le même type de contrôleur Intel que le DXP2800 (igc(4)) — à vérifier sur matériel réel, mais si c'est le cas, il suffit de ne pas dépendre du port 10 GbE (le traiter comme un bonus expérimental, pas un prérequis) pour utiliser ce NAS sans aucun risque réseau bloquant, tout en gagnant 4 baies Intel de la même famille que le DXP2800.
 
 *À différer* : `DXP6800 Pro`, `DXP8800 Plus` et `DXP480T Plus`. Ce sont des machines nettement plus chères (environ 1 000 à 1 400 €), avec des baies et des ports (Thunderbolt 4, PCIe) qui n'apportent rien tant que le pilote de base n'est pas validé sur au moins deux modèles simples. Ils redeviennent pertinents pour la Phase 5 (« généralisation à d'autres modèles de la gamme »), une fois le cœur du HAL stable — pas avant.
 
@@ -146,3 +144,5 @@ Non, il n'est pas nécessaire d'acquérir toute la gamme. Les différences entre
 * https://forums.freebsd.org/threads/how-to-run-freebsd-on-new-boards-built-on-rockchip-35xx.88430/[How to run FreeBSD on new boards built on Rockchip 35XX — forum FreeBSD]
 * https://nas-fr.ugreen.com/products/ugreen-nasync-dxp4800-gt-4-bay-nas-storage[UGREEN NASync DXP4800 GT — fiche officielle France]
 * https://www.tweaktown.com/reviews/11510/ugreen-nasync-dxp4800-gt-powerful-4-bay-nas-with-amd-ryzen-and-dual-10gbe-ports/index.html[UGREEN NASync DXP4800 GT Review — TweakTown]
+* https://www.freshports.org/net/aquantia-atlantic-kmod/[net/aquantia-atlantic-kmod — FreshPorts]
+* https://github.com/Aquantia/aqtion-freebsd/issues/32[Support for Aquantia AQC113 and AQC113C Ethernet Controllers on FreeBSD — GitHub]
