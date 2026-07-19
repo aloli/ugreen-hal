@@ -57,9 +57,17 @@ Ce journal consigne, par ordre chronologique, les décisions structurantes et le
 * Switch KVM HDMI 4 entrées commandé : TESmart HKS401-P23-V2 (4K@60Hz, émulation EDID confirmée, USB 3.0). Anticipe le sprint 5 (généralisation multi-modèles) — permettra de partager un même écran/clavier/Comet entre plusieurs NAS UGREEN.
 * Seule action du sprint 0 encore ouverte : publier l'issue de prise de contact sur `github.com/zvaultio/Community`.
 
+== 2026-07-19 — Décision stratégique : double cible d'intégration (zVault + XigmaNAS)
+
+* Décision : `ugreen-hal` vise désormais zVault *et* XigmaNAS comme cibles d'intégration à part entière, plutôt qu'une cible principale et un repli théorique. Motivation : les deux projets sont des forks/distributions FreeBSD + ZFS actifs et légitimes, et la contribution aux deux communautés est jugée valoir l'effort supplémentaire.
+* Architecture retenue pour ne pas doubler le travail : `src/cli/` reste un cœur strictement FreeBSD standard (`smbus(4)`/`gpio(4)`), indépendant de toute distribution — c'est la partie la plus longue et la plus risquée (rétro-ingénierie, tests sur matériel réel), qui ne se fait qu'une seule fois. Deux couches fines d'empaquetage viendront ensuite se greffer dessus : `integrations/zvault/` (module `zvio-os`/`zvio-middleware`) et `integrations/xigmanas/` (suivant le modèle d'extension déjà établi par la communauté XigmaNAS — contributeur JRGTH, schéma `etc/` + `gui/` PHP + script d'init + fichier `version`).
+* Ordre de développement confirmé : pilote validé sur zVault en premier (sprints 3 à 5), puis portage vers XigmaNAS (nouveau sprint 5bis), plutôt que les deux intégrations en parallèle dès le sprint 3.
+* Canal de contact XigmaNAS identifié pour une future prise de contact : ticket sur `sourceforge.net/p/xigmanas/tickets/` (compte SourceForge gratuit, pas besoin du forum officiel fermé) — volontairement non urgent, à envoyer une fois le pilote plus avancé, après la démarche zVault.
+* Plan de projet mis à jour en v1.8 (architecture Phase 3, sprints 5/5bis/6, sections zVault/XigmaNAS).
+
 == Prochaines étapes
 
-* Ouvrir l'issue de prise de contact sur `github.com/zvaultio/Community` — seule action bloquante restante du sprint 0.
+* Ouvrir l'issue de prise de contact sur `github.com/zvaultio/Community` — seule action bloquante restante du sprint 0 (le ticket XigmaNAS sur `sourceforge.net/p/xigmanas/tickets/` viendra ensuite, sans urgence).
 * Réception du matériel réseau (pont GL-SFT1200 + KVM Comet GL-RM1, estimée vers le 20/07), mise en service, connexion stable du NAS de test au réseau.
 * Préparer la clé USB zVault et tenter le premier démarrage externe sur le DXP2800, dès réception du matériel réseau.
 * Sprint 3 : premier test réel du protocole SMBus du contrôleur LED sur le DXP2800 sous FreeBSD/zVault.
