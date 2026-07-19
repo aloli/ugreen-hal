@@ -47,9 +47,19 @@ Ce journal consigne, par ordre chronologique, les décisions structurantes et le
 * Point encore ouvert : la touche exacte du menu de démarrage BIOS du DXP2800 (probable Suppr/F2 pour le setup, F7/F11/Échap pour le menu de boot, non documentée officiellement) — à confirmer par observation directe au premier essai.
 * Précision terminologique : la « session Claude Code » mentionnée dans le plan de projet désigne en réalité cette session Claude (Cowork) ; pas de bascule nécessaire vers l'outil en ligne de commande du même nom pour la suite du travail.
 
+== 2026-07-18 — Documentation bilingue, commit poussé, matériel confirmé
+
+* README scindé en anglais (`README.adoc`) et français (`README.fr.adoc`), avec renvoi croisé entre les deux ; section « Auteur » ajoutée sur chacun.
+* Copyright de la `LICENSE` mis à jour : Philippe Nénert (ALOLI sas).
+* Commit `01e204e` (« Bilingual README, zVault install docs, contact channel research ») créé et poussé sur `github.com/aloli/ugreen-hal`, branche `development`.
+* Correction de la configuration Git locale (`user.name` contenait l'e-mail en double).
+* Sauvegarde du NAS de test jugée non nécessaire : le NAS est neuf, sans disque installé, donc aucune donnée à perdre. `scripts/backup-nas.sh` reste disponible pour un usage ultérieur (avant la phase 4, remplacement du firmware interne).
+* Switch KVM HDMI 4 entrées commandé : TESmart HKS401-P23-V2 (4K@60Hz, émulation EDID confirmée, USB 3.0). Anticipe le sprint 5 (généralisation multi-modèles) — permettra de partager un même écran/clavier/Comet entre plusieurs NAS UGREEN.
+* Seule action du sprint 0 encore ouverte : publier l'issue de prise de contact sur `github.com/zvaultio/Community`.
+
 == Prochaines étapes
 
-* Réception du matériel réseau (pont GL-SFT1200 + KVM Comet GL-RM1), mise en service, connexion stable du NAS de test au réseau.
-* Ouvrir l'issue de prise de contact sur `github.com/zvaultio/Community`.
+* Ouvrir l'issue de prise de contact sur `github.com/zvaultio/Community` — seule action bloquante restante du sprint 0.
+* Réception du matériel réseau (pont GL-SFT1200 + KVM Comet GL-RM1, estimée vers le 20/07), mise en service, connexion stable du NAS de test au réseau.
 * Préparer la clé USB zVault et tenter le premier démarrage externe sur le DXP2800, dès réception du matériel réseau.
 * Sprint 3 : premier test réel du protocole SMBus du contrôleur LED sur le DXP2800 sous FreeBSD/zVault.
