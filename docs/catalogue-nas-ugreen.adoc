@@ -1,6 +1,7 @@
 = Catalogue des NAS UGREEN (gammes NASync et DH)
 :toc:
 :sectnums:
+:pdf-page-layout: landscape
 
 Ce document recense les NAS UGREEN disponibles à l'achat (marché français, `ugreen.com/fr-fr` et boutiques associées), avec leurs caractéristiques matérielles pertinentes pour `ugreen-hal` : nombre de baies, type de réseau, emplacements M.2 (SSD), mémoire et CPU. Relevés effectués le 19/07/2026 à partir des pages produit officielles et de tests indépendants (sources en fin de document) ; à revérifier avant tout achat, les gammes UGREEN évoluant vite.
 
