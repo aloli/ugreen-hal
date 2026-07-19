@@ -4,21 +4,21 @@
 
 *Français* | link:README.adoc[English]
 
-Couche d'abstraction matérielle (*H*ardware *A*bstraction *L*ayer) pour porter les NAS UGREEN NASync (séries DXP) vers FreeBSD/ZFS, dans l'objectif à terme de contribuer à https://github.com/zvaultio[zVault] plutôt que de construire un firmware concurrent depuis zéro.
+Couche d'abstraction matérielle (*H*ardware *A*bstraction *L*ayer) pour porter les NAS UGREEN NASync (séries DXP) vers FreeBSD/ZFS, dans l'objectif à terme de contribuer à la fois à https://github.com/zvaultio[zVault] et à https://xigmanas.com/[XigmaNAS] plutôt que de construire un firmware concurrent depuis zéro.
 
 [NOTE]
 ====
-Ce dépôt est volontairement scopé étroitement : il ne s'agit pas de réécrire un firmware NAS complet, mais de documenter et porter le matériel spécifique UGREEN (LED de façade, capteurs, boutons, watchdog) que zVault, en tant que fork de TrueNAS CORE, ne connaît pas nativement. Le nom du dépôt reflète ce choix.
+Ce dépôt est volontairement scopé étroitement : il ne s'agit pas de réécrire un firmware NAS complet, mais de documenter et porter le matériel spécifique UGREEN (LED de façade, capteurs, boutons, watchdog) que ni zVault (fork de TrueNAS CORE) ni XigmaNAS ne connaissent nativement. Le cœur (`src/cli/`) reste du FreeBSD indépendant de toute distribution ; des couches d'intégration fines par distribution (`integrations/zvault/`, `integrations/xigmanas/`) viennent s'y greffer une fois validé. Le nom du dépôt reflète ce choix.
 ====
 
 == Pourquoi ce projet
 
 UGOS, le firmware propriétaire livré sur les NAS UGREEN NASync, est basé sur Linux/Debian. Les objectifs de ce projet sont :
 
-* Remplacer UGOS par une pile FreeBSD + ZFS éprouvée, via une distribution existante (zVault, fork communautaire de TrueNAS CORE) plutôt qu'un développement from scratch.
+* Remplacer UGOS par une pile FreeBSD + ZFS éprouvée, via des distributions existantes (zVault, fork communautaire de TrueNAS CORE, et XigmaNAS, projet NAS FreeBSD/ZFS établi de longue date) plutôt qu'un développement from scratch.
 * Documenter précisément le matériel UGREEN (réseau, stockage, LED, boutons, supervision) à partir d'observations directes et reproductibles, pas de suppositions.
 * Porter les composants spécifiques UGREEN manquants sous FreeBSD (au premier chef : le contrôleur LED de façade/baies, piloté en SMBus).
-* Publier le résultat en open source, avec pour ambition finale une contribution amont vers zVault.
+* Publier le résultat en open source, avec pour ambition finale une contribution amont vers zVault et vers XigmaNAS.
 
 == Matériel de référence
 
@@ -49,7 +49,10 @@ La documentation technique détaillée (`docs/`) est rédigée en français pour
 |Journal daté des observations, décisions et étapes franchies.
 
 |`src/cli/`
-|Utilitaires en espace utilisateur pour FreeBSD (à venir — sprint 3).
+|Utilitaires en espace utilisateur pour FreeBSD, indépendants de la distribution (à venir — sprint 3).
+
+|`integrations/`
+|Couches d'intégration fines par distribution (`zvault/`, `xigmanas/`), ajoutées une fois le cœur validé (à venir).
 
 |`scripts/`
 |Scripts d'accompagnement (sauvegarde, préparation de clé USB, etc.).

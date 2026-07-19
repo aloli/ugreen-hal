@@ -5,7 +5,9 @@ Merci de l'intérêt porté à ce projet. Ce document explique comment contribue
 
 == Philosophie du projet
 
-`ugreen-hal` n'est pas un firmware NAS complet : c'est une couche d'abstraction matérielle destinée, à terme, à être proposée en amont à https://github.com/zvaultio[zVault] (fork FreeBSD/ZFS de TrueNAS CORE). Toute contribution doit garder ce scope étroit à l'esprit : documenter et porter le matériel spécifique UGREEN, pas réinventer une distribution.
+`ugreen-hal` n'est pas un firmware NAS complet : c'est une couche d'abstraction matérielle destinée, à terme, à être proposée en amont à https://github.com/zvaultio[zVault] et à https://xigmanas.com/[XigmaNAS], deux distributions FreeBSD/ZFS existantes. Toute contribution doit garder ce scope étroit à l'esprit : documenter et porter le matériel spécifique UGREEN, pas réinventer une distribution.
+
+Le cœur du portage (`src/cli/`) reste volontairement indépendant de toute distribution : il ne connaît que FreeBSD standard (`smbus(4)`, `gpio(4)`). L'intégration à chaque distribution vit dans un dossier séparé, `integrations/zvault/` ou `integrations/xigmanas/`, pour que le travail matériel ne soit fait qu'une seule fois.
 
 == Exigence de rigueur sur les relevés matériels
 
@@ -32,6 +34,7 @@ Ouvrez une issue en décrivant :
 * Le code de portage cible FreeBSD en priorité (le projet ne vise pas Linux).
 * Tout nouveau composant matériel (LED, capteur, bouton) doit être documenté dans `docs/hardware-notes.adoc` avant ou en même temps que le code qui l'exploite.
 * Les pull requests touchant au protocole SMBus du contrôleur LED doivent être validées sur matériel réel avant d'être considérées comme stables (voir le statut « TODO » explicite dans `docs/protocol-i2c-leds.adoc`).
+* Le code spécifique à une distribution (empaquetage, interface web) va dans `integrations/zvault/` ou `integrations/xigmanas/`, jamais dans `src/cli/`.
 
 == Licence des contributions
 
