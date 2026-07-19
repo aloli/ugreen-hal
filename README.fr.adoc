@@ -48,6 +48,9 @@ La documentation technique détaillée (`docs/`) est rédigée en français pour
 |`docs/journal.adoc`
 |Journal daté des observations, décisions et étapes franchies.
 
+|`docs/catalogue-nas-ugreen.adoc`
+|Catalogue comparatif des NAS UGREEN disponibles, utilisé pour orienter les achats de matériel.
+
 |`src/cli/`
 |Utilitaires en espace utilisateur pour FreeBSD, indépendants de la distribution (à venir — sprint 3).
 

@@ -48,6 +48,9 @@ The detailed technical documentation under `docs/` is currently written in Frenc
 |`docs/journal.adoc`
 |Dated log of observations, decisions, and milestones.
 
+|`docs/catalogue-nas-ugreen.adoc`
+|Comparison catalogue of available UGREEN NAS models, used to plan hardware purchases.
+
 |`src/cli/`
 |FreeBSD userland utilities, distribution-agnostic (upcoming — sprint 3).
 

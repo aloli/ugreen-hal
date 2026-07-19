@@ -1,0 +1,127 @@
+= Catalogue des NAS UGREEN (gammes NASync et DH)
+:toc:
+:sectnums:
+
+Ce document recense les NAS UGREEN disponibles à l'achat (marché français, `ugreen.com/fr-fr` et boutiques associées), avec leurs caractéristiques matérielles pertinentes pour `ugreen-hal` : nombre de baies, type de réseau, emplacements M.2 (SSD), mémoire et CPU. Relevés effectués le 19/07/2026 à partir des pages produit officielles et de tests indépendants (sources en fin de document) ; à revérifier avant tout achat, les gammes UGREEN évoluant vite.
+
+[NOTE]
+====
+Ce catalogue ne couvre que les modèles vendus sur `ugreen.com/fr-fr/collections/fr-nas`. Il existe aussi des variantes « GT » (`DXP2800GT`, `DXP4800GT`), à base de processeurs AMD Ryzen, apparemment réservées à d'autres marchés (Amérique du Nord notamment) ; elles ne sont pas traitées ici faute de disponibilité confirmée en France, mais sont mentionnées en fin de document pour mémoire.
+====
+
+== Tableau comparatif
+
+[cols="2,1,3,2,2,2,3", options="header"]
+|===
+|Modèle |Baies |CPU |RAM (installée → max) |Emplacements M.2 NVMe |Réseau |USB / autres ports
+
+|*DH2300*
+|2× SATA (3,5"/2,5")
+|Rockchip RK3576, 8 cœurs ARM (ARMv8.2-A)
+|4 Go LPDDR4X (fixe)
+|Aucun
+|1× 1 GbE
+|2× USB-A 3.2 Gen1, 1× USB-C 3.2 Gen1, HDMI 2.0
+
+|*DH4300 Plus*
+|4× SATA
+|8 cœurs ARM (A76+A55), NPU 6 TOPS
+|8 Go (fixe, non précisé extensible)
+|Aucun
+|1× 2,5 GbE
+|HDMI ; USB non détaillé dans les fiches consultées
+
+|*DXP2800* (unité de test actuelle)
+|2× SATA + 2× M.2 NVMe
+|Intel N100, 4 cœurs/4 threads (jusqu'à 3,4 GHz)
+|8 Go DDR5 → 16 Go (1 slot SO-DIMM)
+|2 (utilisables en stockage ou cache)
+|1× 2,5 GbE
+|1× USB 3.2 Gen1, 1× USB 3.2 Gen2, 1× USB-C 3.2 Gen2, 2× USB 2.0, HDMI 4K60
+
+|*DXP4800*
+|4× SATA + 2× M.2 NVMe
+|Intel série N, 4 cœurs/4 threads
+|8 Go DDR5 → 16 Go
+|2
+|2× 2,5 GbE
+|1× USB-C 10 Gb/s, 1× USB-A 10 Gb/s (façade), 1× USB-A 5 Gb/s + 2× USB-A 480 Mb/s (arrière), HDMI 4K, lecteur SD 3.0
+
+|*DXP4800 Plus*
+|4× SATA + 2× M.2 NVMe
+|Intel Pentium Gold 8505, 5 cœurs/6 threads
+|8 Go DDR5 → 64 Go (2 slots SO-DIMM)
+|2
+|1× 10 GbE + 1× 2,5 GbE
+|1× USB 3.1 Gen1, 1× USB 3.2 Gen2, 1× USB-C 3.2 Gen2, 2× USB 2.0, HDMI 4K60
+
+|*DXP4800 Pro*
+|4× SATA + 2× M.2 NVMe
+|Intel Core i3-1315U
+|8 Go DDR5 → 96 Go
+|2
+|1× 10 GbE + 1× 2,5 GbE
+|1× USB-C 10 Gb/s + 1× USB-A 10 Gb/s (façade), 1× USB-A 5 Gb/s + 2× USB-A 480 Mb/s (arrière), HDMI 4K, lecteur SD 3.0
+
+|*DXP6800 Pro*
+|6× SATA + 2× M.2 NVMe
+|Intel Core i5-1235U, 10 cœurs/12 threads
+|8 Go DDR5 → 64 Go
+|2
+|2× 10 GbE
+|2× Thunderbolt 4 (40 Gb/s), 1× USB 3.2, 2× USB 2.0, lecteur SD 4.0, 1× PCIe x4, HDMI 8K
+
+|*DXP8800 Plus*
+|8× SATA + 2× M.2 NVMe
+|Intel Core i5-1235U, 10 cœurs/12 threads
+|8 Go DDR5 → 64 Go
+|2
+|2× 10 GbE
+|2× Thunderbolt 4 (40 Gb/s), 2× USB-A 10 Gb/s, 2× USB-A 480 Mb/s, lecteur SD 4.0, 1× PCIe x4, HDMI 8K
+
+|*DXP480T Plus* (tout-SSD)
+|Aucune (0 SATA)
+|Intel Core i5-1235U, 10 cœurs/12 threads
+|8 Go DDR5 → 64 Go
+|4 (seul support de stockage : pas de baies SATA)
+|1× 10 GbE
+|2× Thunderbolt 4 (40 Gb/s), 1× USB-A 10 Gb/s, Wi-Fi intégré, HDMI 8K
+|===
+
+== Pertinence pour `ugreen-hal`
+
+* *Famille de silicium* : `DH2300` et `DH4300 Plus` reposent sur un SoC ARM (Rockchip RK3576). FreeBSD n'a pas de support mainline pour ce SoC, et ni zVault ni XigmaNAS ne tournent sur ARM en pratique aujourd'hui — ces deux modèles sont donc *hors scope* pour `ugreen-hal`, quel qu'en soit le prix attractif. Tous les autres modèles (`DXP*`) sont x86 (Intel), donc potentiellement pertinents.
+* *Risque déjà identifié sur le réseau 10 GbE* : le choix initial du DXP2800 comme unité de test (sprint 0) excluait explicitement le DXP4800 Plus à cause de son contrôleur réseau Aquantia AQC113, dont le pilote FreeBSD était jugé immature. Ce même risque s'applique très probablement à `DXP4800 Pro`, `DXP6800 Pro`, `DXP8800 Plus` et `DXP480T Plus`, qui partagent tous un port 10 GbE — à vérifier précisément (le chipset réseau exact n'est pas toujours documenté publiquement), mais à traiter comme un risque par défaut.
+* *Modèles réseau « tout 2,5 GbE »* : `DXP2800` (déjà en notre possession) et `DXP4800` (base, sans « Plus ») n'ont que des ports 2,5 GbE, sans le risque Aquantia. `DXP4800` a l'avantage d'utiliser un CPU Intel de la même famille (série N) que le DXP2800, ce qui laisse penser que le contrôleur LED SMBus et les GPIO seront pilotés par le même jeu de puces PCH — hypothèse à vérifier sur matériel réel, pas une certitude.
+
+== Recommandation d'achat
+
+Non, il n'est pas nécessaire d'acquérir toute la gamme. Les différences entre modèles sont surtout des paliers de CPU/RAM/nombre de baies, pas des familles de matériel radicalement différentes ; multiplier les achats démontrerait surtout que le pilote fonctionne sur des CPU Intel plus puissants, ce qui est un risque faible comparé aux vrais inconnus du projet (comportement SMBus, boutons, watchdog).
+
+*Pour le second NAS destiné à XigmaNAS, recommandation : le `DXP4800` (base, sans « Plus »).* Trois raisons :
+
+* Il est x86 Intel de la même famille que le DXP2800 (donc pas de nouveau risque de pilote CPU/PCH), tout en étant un modèle réellement différent (4 baies au lieu de 2, ce qui permet aussi de tester du RAID réel — utile pour la Phase 3 du plan, tests de résilience ZFS).
+* Il n'a pas de port 10 GbE, donc pas le risque Aquantia AQC113 qui avait fait écarter le DXP4800 Plus dès le sprint 0.
+* Il reste dans une gamme de prix raisonnable comparé aux modèles « Pro »/« Plus » haut de gamme.
+
+*Repli plus prudent, si le `DXP4800` s'avère indisponible ou trop cher* : un second `DXP2800`, strictement identique au premier. Moins intéressant pour la « généralisation à d'autres modèles » (Phase 5 du plan), mais zéro risque matériel nouveau, et suffisant pour disposer d'une deuxième unité physique dédiée à XigmaNAS pendant que la première reste sur zVault.
+
+*À différer* : `DXP6800 Pro`, `DXP8800 Plus` et `DXP480T Plus`. Ce sont des machines nettement plus chères (environ 1 000 à 1 400 €), avec des baies et des ports (Thunderbolt 4, PCIe) qui n'apportent rien tant que le pilote de base n'est pas validé sur au moins deux modèles simples. Ils redeviennent pertinents pour la Phase 5 (« généralisation à d'autres modèles de la gamme »), une fois le cœur du HAL stable — pas avant.
+
+*Non retenus pour ce projet* : `DH2300` et `DH4300 Plus` (ARM, incompatibles avec l'objectif FreeBSD).
+
+== Sources
+
+* https://ai.ugreen.com/pages/compare[Compare NASync Series Specifications — UGREEN]
+* https://www.ugreen.com/fr-fr/collections/fr-nas[Gamme NAS UGREEN — site France]
+* https://www.newegg.com/ugreen-dxp2800-2-bay-intel-n100-quad-core-cpu-processor-diskless-system/p/N82E16822995001[UGREEN NASync DXP2800 — fiche Newegg]
+* https://nas.ugreen.com/products/ugreen-nasync-dxp4800-4-bay-nas-136tb[UGREEN NASync DXP4800 — fiche officielle]
+* https://www.newegg.com/ugreen-dxp4800-plus-4-bay-intel-pentium-gold-8505-processor-diskless-system/p/N82E16822995003[UGREEN NASync DXP4800 Plus — fiche Newegg]
+* https://ai.ugreen.com/products/ugreen-nasync-dxp4800-pro-136tb-4-bay-nas[UGREEN NASync DXP4800 Pro — fiche officielle]
+* https://ai.ugreen.com/products/ugreen-nasync-dxp6800-pro-nas-storage[UGREEN NASync DXP6800 Pro — fiche officielle]
+* https://ai.ugreen.com/products/ugreen-nasync-dxp8800-plus-nas-storage[UGREEN NASync DXP8800 Plus — fiche officielle]
+* https://ai.ugreen.com/products/ugreen-nasync-dxp480t-plus-nas-storage[UGREEN NASync DXP480T Plus — fiche officielle]
+* https://awesomeminipc.com/devices/ugreen-nasync-dh2300[UGREEN NASync DH2300 — fiche technique]
+* https://www.broadbandbuyer.com/products/55789-ugreen-dh4300-plus/specifications/[UGREEN NASync DH4300 Plus — fiche technique]
+* https://www.wundertech.net/best-ugreen-nas/[Best UGREEN NAS in 2026: Every NASync Model Compared — WunderTech]
+* https://nascompares.com/guide/the-ugreen-nasync-nas-dxp2800-dxp4800-dxp6800-dxp8800-and-dxp480t-should-you-buy/[The UGreen NASync NAS — NAS Compares]
