@@ -164,26 +164,60 @@ module PrepareUsb
   end
 
   def locate_iso(image : Image) : String
-    title "Où se trouve l'image ?"
+    title "L'image ISO"
 
     default = Path.home.join("Downloads", image.hint).to_s
-    puts "  Proposition : #{default}"
-    puts "  (entrée vide pour l'accepter, sinon saisir un autre chemin)"
+
+    # Si l'image attendue est déjà là, la proposer d'emblée : c'est le cas
+    # courant dès la deuxième exécution.
+    if File.file?(default)
+      puts "  Déjà présente : #{default}"
+      puts
+      return describe_iso(default) if ask_yes_no("L'utiliser ?")
+    end
+
+    puts "  1. Télécharger l'image maintenant"
+    puts "  2. Utiliser un fichier déjà présent sur le disque"
     puts
 
     loop do
-      answer = ask("Chemin :")
-      path = answer.empty? ? default : Path[answer].expand(home: true).to_s
+      case ask("Numéro :")
+      when "1"
+        destination = ask_destination(image, default)
+        download(image, destination)
+        return describe_iso(destination) if File.file?(destination)
+      when "2"
+        path = ask_existing_path(default)
+        return describe_iso(path) if path
+      else
+        puts "  Saisir 1 ou 2."
+      end
+    end
+  end
 
-      return describe_iso(path) if File.file?(path)
+  def ask_destination(image : Image, default : String) : String
+    puts
+    puts "  Enregistrer sous : #{default}"
+    puts "  (entrée vide pour l'accepter, sinon saisir un autre chemin)"
+    answer = ask("Chemin :")
+    answer.empty? ? default : Path[answer].expand(home: true).to_s
+  end
+
+  # Renvoie nil si l'utilisateur veut revenir au menu précédent, ce qui évite
+  # de l'enfermer dans une boucle s'il s'est trompé d'option.
+  def ask_existing_path(default : String) : String?
+    puts
+    puts "  Chemin du fichier (entrée vide pour revenir en arrière)"
+    puts "  Proposition : #{default}"
+
+    loop do
+      answer = ask("Chemin :")
+      return nil if answer.empty?
+
+      path = Path[answer].expand(home: true).to_s
+      return path if File.file?(path)
 
       puts "  Fichier introuvable : #{path}"
-      puts
-
-      if ask_yes_no("Le télécharger maintenant ?")
-        download(image, path)
-        return describe_iso(path) if File.file?(path)
-      end
     end
   end
 
