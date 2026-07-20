@@ -96,6 +96,41 @@ Procédure (à dérouler sur le NAS, depuis un live Linux, PAS via ce script) :
   mount | grep mmcblk0 || echo "OK : eMMC non montée"
 
   # ---------------------------------------------------------------
+  # 2bis. DIMENSIONNER LE SUPPORT DE DESTINATION
+  # ---------------------------------------------------------------
+  # L'eMMC fait 29,2 Gio (~31,4 Go commerciaux). Conséquences selon le
+  # support choisi :
+  #
+  #  - Clé USB « 32 Go » : offre ~29,7 Gio utiles après formatage. Une
+  #    image BRUTE y tiendrait de justesse (marge ~500 Mio), une image
+  #    COMPRESSÉE largement. Viable, mais voir les deux pièges ci-dessous.
+  #  - Disque externe 500 Go / 1 To : aucun souci, option préférable.
+  #
+  # PIÈGE 1 — FAT32 : les clés USB sont formatées en FAT32 d'usine, dont la
+  # taille maximale par FICHIER est de 4 Gio. Une image de 29 Gio ne peut
+  # pas y être écrite : dd s'interrompt à 4 Gio sur une erreur d'écriture,
+  # après de longues minutes de copie. Reformater en exFAT (lisible partout)
+  # ou en ext4 (si relecture sous Linux uniquement) AVANT de commencer :
+  #     mkfs.exfat -n SAUVEGARDE-UGOS /dev/sdXN
+  # Vérifier le système de fichiers réellement en place :
+  #     lsblk -f /dev/sdX
+  #
+  # PIÈGE 2 — le pari de la compression : l'eMMC est quasi vide, donc zstd
+  # devrait ramener l'image à quelques Go. Mais dd lit TOUS les blocs, y
+  # compris l'espace libre : le gain n'est réel que si cet espace contient
+  # des zéros. Sur un appareil neuf c'est probable, pas certain. Surveiller
+  # la taille du fichier pendant la copie (voir étape 5) plutôt que de le
+  # découvrir en fin de course.
+  #
+  # Repli si le support s'avère trop petit : découper l'image compressée en
+  # tranches, ce qui permet aussi de rester en FAT32 :
+  #     dd if=/dev/mmcblk0 bs=4M | zstd -3 | split -b 3G - ugos-emmc.img.zst.
+  # (reconstruction : cat ugos-emmc.img.zst.* | zstd -d > ugos-emmc.img)
+  #
+  # Dans tous les cas, une clé USB n'est pas un support d'archivage durable :
+  # recopier l'image sur le Mac une fois l'opération terminée.
+
+  # ---------------------------------------------------------------
   # 3. MONTER LE DISQUE EXTERNE (et lui seul en écriture)
   # ---------------------------------------------------------------
   mkdir -p /mnt/backup
@@ -118,6 +153,11 @@ Procédure (à dérouler sur le NAS, depuis un live Linux, PAS via ce script) :
   # compression ramène l'image à quelques Gio. zstd -3 est un bon
   # compromis vitesse/taille ; remplacer par `gzip` si zstd est absent.
   dd if=/dev/mmcblk0 bs=4M status=progress | zstd -3 -o ugos-emmc.img.zst
+
+  # Depuis un second terminal (Alt-F2 sous SystemRescue), surveiller que la
+  # taille du fichier compressé reste compatible avec l'espace disponible —
+  # utile surtout sur une clé de 32 Go, où la marge est faible :
+  #     watch -n 30 'ls -lh ugos-emmc.img.zst; df -h /mnt/backup'
 
   # Les partitions de démarrage eMMC (boot0/boot1) sont distinctes du
   # disque principal et contiennent le chargeur — les prendre aussi :
