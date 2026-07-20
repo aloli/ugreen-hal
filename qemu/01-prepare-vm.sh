@@ -28,7 +28,13 @@ else
 fi
 
 echo "[prepare] construction de l'ISO cloud-init"
-stage="$(mktemp -d)"
+
+# Zone de préparation dans run/ plutôt que dans le répertoire temporaire du
+# système : le banc reste ainsi entièrement contenu dans son propre dossier,
+# sans dépendre de TMPDIR ni des politiques d'accès qui s'y appliquent.
+stage="${RUN_DIR}/seed-stage"
+rm -rf "${stage}"
+mkdir -p "${stage}"
 trap 'rm -rf "${stage}"' EXIT
 
 cat > "${stage}/meta-data" <<EOF
