@@ -1,2 +1,6 @@
 .DS_Store
 *.pdf
+
+# Configuration Claude Code personnelle (permissions locales, machine de dev)
+.claude/settings.local.json
+.claude/.cc-writes/
