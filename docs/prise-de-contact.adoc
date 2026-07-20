@@ -1,0 +1,118 @@
+= Messages de prise de contact — zVault et XigmaNAS
+:toc:
+:sectnums:
+
+Ce document contient les messages prêts à publier, à copier tels quels. Il remplace le brouillon de `plan-firmware-freebsd-ugreen-nas.adoc`, rédigé le 15/07/2026 avant la décision v1.8 (double cible d'intégration) et avant l'état de l'art du 20/07.
+
+[NOTE]
+====
+*Messages rédigés en anglais*, contrairement au brouillon initial : les deux communautés visées échangent en anglais, et un message en français réduirait fortement les chances de réponse.
+====
+
+== zVault — issue à ouvrir sur `github.com/zvaultio/Community`
+
+Canal retenu : une *issue* sur https://github.com/zvaultio/Community (canal le plus actif de l'équipe). La même formulation convient pour un e-mail à `team@zvault.io` en cas d'absence de réponse.
+
+Vérification faite le 20/07/2026 : la recherche `is:issue UGREEN` sur ce dépôt ne renvoie *aucun* résultat sur 27 issues. Le sujet est donc bien vierge, ce que ce message peut affirmer sans risque d'être démenti.
+
+[source]
+----
+Title: Hardware support for UGREEN NASync NAS devices — intent to contribute
+
+Hi,
+
+I'm working on hardware support for UGREEN NASync NAS devices (starting
+with the DXP2800, Intel N100) with the goal of contributing it to zVault.
+
+The aim is not to build a competing distribution, but to document and port
+the UGREEN-specific components that a stock FreeBSD base doesn't know
+about:
+
+- the front panel / drive bay LED controller (SMBus, slave address 0x3a in
+  Linux 7-bit notation, chip ID 0xc5b2 — protocol already reverse-
+  documented from the Linux reference implementation
+  miskcoo/ugreen_leds_controller);
+- the front panel buttons (GPIO, exposed on Linux via a platform driver
+  rather than I2C);
+- hardware monitoring (ITE IT8613 — FreeBSD's superio(4) already
+  recognises the device ID via D39969, and a full it8613hwm(4) driver
+  exists in review as D39970/D39971, currently "Changes Planned").
+
+Work in progress is documented here, hardware findings first:
+https://github.com/aloli/ugreen-hal
+
+The core is deliberately distribution-agnostic (plain FreeBSD smbus(4) /
+gpio(4)), with thin per-distribution packaging layers on top, so the same
+driver work can serve zVault and other FreeBSD NAS distributions without
+duplicating the hard part.
+
+Two questions before I go further:
+
+1. Is any similar work on UGREEN NASync support already under way on the
+   zVault side? I searched this tracker and found nothing, but I'd rather
+   ask than duplicate effort.
+2. What contribution shape would be most useful to the team — an add-on
+   module to zvio-os / zvio-middleware, or something more directly
+   integrated?
+
+For context on where this stands: the protocol is documented but not yet
+validated on real hardware under FreeBSD. That's the next step, and I'll
+report results either way.
+
+Thanks for keeping TrueNAS CORE alive — that continuity is exactly what
+I was looking for.
+
+Philippe
+----
+
+== XigmaNAS — ticket à ouvrir sur SourceForge
+
+Canal retenu : https://sourceforge.net/p/xigmanas/tickets/ (compte SourceForge gratuit ; le forum officiel est fermé à l'inscription libre).
+
+*Calendrier* : volontairement postérieur à la démarche zVault, et à n'envoyer qu'une fois le pilote effectivement validé sur matériel réel (sprint 3 franchi). Un message annonçant une intention a peu de valeur ici ; un message annonçant un pilote qui fonctionne en a beaucoup.
+
+[source]
+----
+Title: UGREEN NASync hardware support — extension in development
+
+Hi,
+
+I'm developing FreeBSD support for the UGREEN NASync range (DXP series,
+Intel x86_64) — front panel and drive bay LEDs over SMBus, buttons over
+GPIO, and ITE IT8613 hardware monitoring. None of this is supported out
+of the box on a stock FreeBSD base today.
+
+The driver core is plain FreeBSD (smbus(4) / gpio(4)) and carries no
+dependency on any particular distribution. I'd like to package it as a
+XigmaNAS extension, following the structure used by existing community
+extensions (etc/ + gui/ PHP pages + init script + version file).
+
+Repository, with the hardware findings and the reverse-documented SMBus
+protocol:
+https://github.com/aloli/ugreen-hal
+
+Questions:
+
+1. Is there any existing work on UGREEN hardware within the XigmaNAS
+   community that I've missed?
+2. For an extension of this kind, is a separate repository referenced from
+   the project the expected route, or would you rather see it proposed
+   into the main tree?
+
+Philippe
+----
+
+== Suivi
+
+[cols="2,1,3", options="header"]
+|===
+|Destinataire |État |Note
+
+|zVault (`zvaultio/Community`)
+|*À publier*
+|Seule action réellement bloquante du sprint 0. Ne dépend d'aucun matériel.
+
+|XigmaNAS (SourceForge)
+|Différé
+|À envoyer après zVault, une fois le pilote validé sur matériel réel.
+|===
