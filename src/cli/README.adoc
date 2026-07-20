@@ -1,5 +1,38 @@
 = src/cli
 
-Emplacement prévu pour les utilitaires en espace utilisateur ciblant FreeBSD (ex. `ugreen-led-ctl`, portage du protocole documenté dans `../../docs/protocol-i2c-leds.adoc`).
+Cœur du HAL : utilitaires en espace utilisateur ciblant FreeBSD, strictement indépendants de toute distribution — ils ne connaissent que `smbus(4)` et `gpio(4)`, jamais zVault ni XigmaNAS.
 
-Aucun code n'est encore présent : le développement démarrera au sprint 3 du plan de projet, une fois le NAS de test accessible sous un environnement FreeBSD fonctionnel (zVault ou XigmaNAS).
+== ugreen-led-ctl
+
+Pilotage des LED de façade et de baies, portage du protocole documenté dans `../../docs/protocol-i2c-leds.adoc`.
+
+[source,shell]
+----
+make                         # construit ugreen-led-ctl
+./ugreen-led-ctl status power
+./ugreen-led-ctl on disk1
+./ugreen-led-ctl color disk1 255 0 0
+./ugreen-led-ctl brightness power 180
+----
+
+[IMPORTANT]
+====
+*Jamais exécuté sur matériel réel à ce jour.* Ce programme est le livrable de l'étape 3.2 du plan ; l'étape 3.3 consiste à le lancer sur le DXP2800 sous FreeBSD et à retranscrire ce qui se produit.
+
+Deux incertitudes sont à lever au premier essai, dans cet ordre :
+
+. *Le contrôleur répond-il à l'adresse attendue ?* `0x74` en convention FreeBSD 8 bits, soit le `0x3a` relevé côté Linux décalé d'un bit.
+. *La forme de la trame est-elle la bonne ?* Le code Linux de référence émet une transaction I2C brute, sans octet de longueur, là où `SMB_BWRITE` insère un octet de comptage conformément au standard SMBus. Si le microcontrôleur attend la première forme, la trame sera décalée et la commande rejetée — vraisemblablement en silence. Le repli documenté est `iic(4)` et son ioctl `I2CRDWR`, qui permet d'émettre la trame exacte. Ne pas conclure à une erreur d'adresse ou de somme de contrôle avant d'avoir écarté cette piste.
+====
+
+== Prérequis d'exécution
+
+Le contrôleur SMBus du PCH Intel doit être attaché :
+
+[source,shell]
+----
+kldload ichsmb              # ou intpm selon le chipset
+dmesg | grep -i smb         # vérifier l'attachement et le nom du device
+----
+
+Le device node attendu est `/dev/smb0`, modifiable par l'option `-d`. Sur un NASync sous FreeBSD 14.3, un utilisateur a rapporté que le contrôleur apparaît comme « Intel Alder Lake SMBus controller » et non sous le nom `I801` connu de Linux — le nom exact reste donc à constater plutôt qu'à supposer.

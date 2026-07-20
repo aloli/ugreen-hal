@@ -31,8 +31,6 @@ jobs:
             # n'interromprait pas le script et le job afficherait « OK » à tort.
             set -e
 
-            # TODO(sprint 1) : ajouter la compilation de src/cli/ une fois
-            # du code présent.
             # Boucle `for` volontairement, et non `find -exec` : find ignore le
             # code de retour de -exec, ce qui laissait passer un document
             # invalide sans faire échouer le job.
@@ -41,3 +39,12 @@ jobs:
               asciidoctor --safe-mode=safe -o /dev/null "${doc}"
             done
             echo "OK : documents AsciiDoc valides."
+
+            # Compilation du cœur du HAL. C'est le seul endroit où le code
+            # rencontre les véritables en-têtes FreeBSD (dev/smbus/smb.h) :
+            # la machine de développement est un Mac, où il ne peut être que
+            # vérifié syntaxiquement contre un en-tête reconstitué.
+            echo
+            echo "Compilation de src/cli/ :"
+            make -C src/cli
+            echo "OK : src/cli compile sous FreeBSD."

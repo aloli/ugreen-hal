@@ -140,7 +140,31 @@ Point important corrigé par rapport à la version précédente de ce document :
 * *Réserve sur cette hypothèse (ajoutée le 20/07/2026)* : le fil « NASync LED controller » du forum FreeBSD rapporte que, sur un NASync sous FreeBSD 14.3, le contrôleur n'apparaît *pas* sous le nom `I801` comme sous Linux, mais comme « Intel Alder Lake SMBus controller » (port `0xefa0`). Le même auteur signale que `iic1` et `smb2` sont tous deux adossés à `iicbus1` mais renvoient des adresses différentes selon que l'on interroge le bus via `i2c(4)` ou `smbmsg(4)`. Le nom exact du device node et le bon point d'entrée (`smbus(4)` ou `iic(4)`) sont donc à *déterminer par observation* au sprint 3, et non à supposer.
 * *Balayage du bus rapporté par ce même fil* : périphériques détectés aux adresses `0x10`, `0x74`, `0x88`, `0x94`, `0xa4`. La présence de `0x74` corrobore la conversion 7 bits → 8 bits décrite plus haut.
 * FreeBSD expose des ioctls SMBus (transactions quick/byte/word/block) directement analogues aux transactions `I2C_SMBUS_I2C_BLOCK_DATA` utilisées par le code Linux de référence — la traduction du protocole ci-dessus devrait donc être directe, sans avoir besoin de reconstruire les trames à la main sur un bus I2C générique.
-* Reste à vérifier au sprint 3, sur le NAS réel sous FreeBSD/zVault : que `ichsmb(4)` détecte bien le contrôleur SMBus du DXP2800, et que les tailles de bloc (11 octets en lecture, 12 en écriture) sont acceptées telles quelles par l'implémentation FreeBSD du protocole SMBus block (certaines piles limitent strictement à 32 octets, ce qui est largement suffisant ici).
+* *Question des tailles de bloc : réglée le 20/07/2026.* La lecture directe de `sys/dev/smbus/smb.h` (dépôt FreeBSD) donne `SMB_MAXBLOCKSIZE 32` : nos blocs de 11 et 12 octets passent sans difficulté.
+* *Noms d'ioctls corrigés le 20/07/2026*, également par lecture de l'en-tête réel : les macros sont `SMB_BWRITE` (`_IOW('i', 10, struct smbcmd)`) et `SMB_BREAD` (`_IOWR('i', 11, struct smbcmd)`). La version précédente de ce document mentionnait un `SMB_WRITE_BLOCK` qui *n'existe pas*.
+* La structure `struct smbcmd` comporte les champs `cmd`, `reserved`, `op`, les unions `wdata`/`rdata`, puis `slave`, `wbuf`, `wcount`, `rbuf`, `rcount`. L'adresse de l'esclave se place donc dans `slave`, et l'octet de commande (`0x00 + ID` ou `0x81 + ID`) dans `cmd`.
+* Reste à vérifier au sprint 3, sur le NAS réel : que `ichsmb(4)` détecte bien le contrôleur SMBus du DXP2800 — voir la réserve ci-dessus sur son nom d'attachement.
+
+=== Incertitude majeure : octet de longueur du bloc
+
+[IMPORTANT]
+====
+Identifiée le 20/07/2026 en écrivant `src/cli/ugreen-led-ctl.c`, et non encore levée. C'est le point le plus susceptible de faire échouer le premier essai.
+
+Le code Linux de référence utilise `I2C_SMBUS_I2C_BLOCK_DATA`, une transaction I2C *brute* qui n'émet pas d'octet de longueur. `SMB_BWRITE` de FreeBSD implémente le « Block Write » du standard SMBus, lequel insère un octet de comptage entre la commande et les données :
+
+[source]
+----
+Linux   (I2C block)  : [adresse][commande][d0][d1]...[dn]
+FreeBSD (SMBus block): [adresse][commande][n][d0][d1]...[dn]
+----
+
+Si le microcontrôleur UGREEN attend la première forme, cet octet supplémentaire décale toute la trame et la commande est rejetée — silencieusement, selon toute vraisemblance, puisque le contrôleur n'a aucun moyen de signaler une erreur de format.
+
+*Repli documenté* : passer par `iic(4)` et son ioctl `I2CRDWR`, qui permet de composer la trame exacte, octet par octet.
+
+*Consigne de diagnostic* : ne pas conclure à une erreur d'adresse ou de somme de contrôle avant d'avoir écarté cette piste. Les deux hypothèses produisent le même symptôme — aucune réaction de la LED.
+====
 
 == Squelette d'utilitaire FreeBSD (à valider au sprint 3)
 
