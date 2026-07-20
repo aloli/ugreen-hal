@@ -337,9 +337,10 @@ Au-delà du NAS de test lui-même, quatre accessoires évitent de se retrouver b
 |Garder un accès réseau (donc SSH) même si le port 2,5 GbE embarqué est mal détecté, mal configuré ou en cours de test pendant les sprints. Sans ce filet de sécurité, la moindre erreur réseau oblige à rebrancher un écran/clavier pour tout diagnostiquer.
 |Un adaptateur USB-A/USB-C vers Gigabit Ethernet à base de chipset Realtek RTL8152/8153 (pilote `ure(4)`, généralement reconnu sans configuration particulière) ou ASIX AX88179 (pilote `axge(4)` ; fonctionne bien mais un modèle vendu par UGREEN lui-même nécessite un réglage `hw.usb.quirk` documenté sur le forum FreeBSD — pas bloquant, juste à connaître). Le débit Gigabit suffit largement pour de la gestion à distance.
 
-|Support de démarrage pour l'installeur
-|Démarrer le NAS sur zVault sans toucher au SSD interne (sprint 2).
-|Une clé USB 3.0 de 16 Go minimum. Pas besoin de plus : c'est un support de démarrage, pas un support d'exécution prolongée.
+|Supports de démarrage
+|Trois usages distincts, donc trois clés : l'installeur zVault (sprint 2), un live Linux pour cloner l'eMMC (SystemRescue, voir `scripts/backup-nas.sh`), et éventuellement une clé recevant l'image du clone.
+|*Correction v1.10* : la recommandation initiale (16 à 32 Go, « pas besoin de plus ») était mal calibrée. Prendre du *64 Go* : à ces gammes l'écart de prix avec le 32 Go est négligeable (quelques euros), alors que le 32 Go ne laisse qu'environ 500 Mio de marge pour accueillir une image brute de l'eMMC (29,2 Gio). +
+Attention, la capacité ne règle pas tout : quelle que soit la taille de la clé, le formatage FAT32 d'usine limite chaque *fichier* à 4 Gio et rend impossible l'écriture d'une image de cette taille. Reformater en exFAT reste nécessaire — voir `scripts/backup-nas.sh`.
 
 |Support d'exécution persistant
 |Faire tourner zVault de façon durable pendant plusieurs semaines de test (sprints 2 à 5), avec un vrai pool ZFS.
@@ -369,9 +370,9 @@ Amazon bloque la lecture automatisée de ses pages produit (règles `robots.txt`
 |https://www.amazon.fr/TP-Link-Adaptateur-UE300-Ordinateur-Chromebook/dp/B00V4BGDKU
 |≈ 18-20 €
 
-|Clé USB 3.1 32 Go (SanDisk Ultra Fit) pour l'installeur zVault
+|Clés USB 3.1 *64 Go* (SanDisk Ultra Fit) — *corrigé v1.10, il en faut trois*
 |https://www.amazon.fr/SanDisk-Ultra-allant-jusqu%C3%A0-130Mo/dp/B077VXV323
-|≈ 9-12 €
+|≈ 12-15 € pièce
 
 |SSD externe USB 250 Go (SanDisk Extreme Portable) pour l'exécution persistante de zVault
 |https://www.amazon.fr/SanDisk-SDSSDE60250GG25-Disque-Flash-Interne/dp/B078SVRH4B
