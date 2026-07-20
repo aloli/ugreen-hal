@@ -352,7 +352,9 @@ Attention, la capacité ne règle pas tout : quelle que soit la taille de la cl�
 
 |Pont WiFi vers Ethernet — *ajouté en v1.0, prérequis*
 |Le bureau de travail n'a pas de prise Ethernet filaire, uniquement du WiFi. Or ni le DXP2800 ni l'IP-KVM retenu (GL.iNet Comet GL-RM1) n'ont de WiFi intégré : sans ce pont (ou un câble tiré depuis la box), ni le SSH quotidien (sprint 0 et suivants) ni l'IP-KVM ne peuvent fonctionner.
-|Un routeur de voyage GL.iNet en mode « WISP » (client WiFi → ports Ethernet), par exemple le GL-SFT1200 (Opal, ports Gigabit) plutôt que le GL-MT300N-V2 (Mango, limité à 100 Mbps) : https://www.amazon.fr/GL-iNet-GL-SFT1200-Routeur-s%C3%A9curis%C3%A9-r%C3%A9p%C3%A9teur/dp/B09N72FMH5. Alternative toujours préférable si possible : tirer un câble Ethernet physique jusqu'au bureau, plus simple, plus fiable, et ce qu'un NAS préfère de toute façon.
+|Un routeur de voyage GL.iNet en mode « WISP » (client WiFi → ports Ethernet), par exemple le GL-SFT1200 (Opal, ports Gigabit) plutôt que le GL-MT300N-V2 (Mango, limité à 100 Mbps) : https://www.amazon.fr/GL-iNet-GL-SFT1200-Routeur-s%C3%A9curis%C3%A9-r%C3%A9p%C3%A9teur/dp/B09N72FMH5. Alternative toujours préférable si possible : tirer un câble Ethernet physique jusqu'au bureau, plus simple, plus fiable, et ce qu'un NAS préfère de toute façon. +
+ +
+*Relevé du 20/07/2026 (fiche officielle GL.iNet)* : l'Opal dispose de *1 port WAN et 2 ports LAN* gigabit, plus un USB 2.0. Les deux ports LAN suffisent exactement aux besoins actuels — le NAS de test et le KVM Comet — donc aucun achat complémentaire n'est nécessaire à ce stade. La question ne se posera qu'au sprint 5, avec un second NAS : un simple *switch gigabit 5 ports* (15 à 20 €) branché sur un port LAN de l'Opal résout le problème. Le GL-MT6000 « Flint 2 » (2× 2,5 GbE + 4× 1 GbE, environ 150 €) offrirait davantage, mais son débit resterait plafonné par la même liaison WiFi montante : le nombre de ports n'est pas le goulot d'étranglement, la liaison sans fil l'est.
 |===
 
 === Liste d'achat (matériel complémentaire, projet `papilip`)
