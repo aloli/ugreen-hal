@@ -105,6 +105,12 @@ Ce qui reste incertain, et maintient le clone au rang de précaution raisonnable
 Leçon de méthode : l'affirmation initiale reposait sur un unique message de forum, transformé en fait établi — précisément ce que `CONTRIBUTING.adoc` proscrit. Le statut correct est « probablement récupérable sans clone, mais personne ne l'a vérifié ».
 ====
 * *Portée du clone* : il ne conditionne que la phase 4 (écriture sur le stockage interne). Les sprints 2 et 3, en démarrage externe sur clé USB ou SSD, n'écrivent rien en interne et ne sont pas concernés.
+* *Filet de sécurité supplémentaire, relevé par l'utilisateur* : le second NAS, déjà prévu au plan pour l'intégration XigmaNAS, fait aussi office de *donneur d'eMMC*. Un exemplaire identique resté intact permet de cloner son stockage interne vers une machine dont le firmware aurait été perdu. Le repli ne coûte donc rien de plus que ce qui est déjà budgété, ce qui rend le risque de « brick » nettement moins critique qu'il n'apparaissait — et justifie de ne pas retarder les sprints pour cette raison.
++
+[NOTE]
+====
+Réserve à vérifier avant de compter dessus : l'eMMC contient des partitions propres à l'exemplaire (`UGREEN-SERVICE`, `USER-DATA`) et le nom d'hôte par défaut dérive d'un identifiant matériel (`DXP2800-2CFF`). Plusieurs sources indiquent par ailleurs qu'UGREEN lie ses fichiers de restauration au numéro de série de l'appareil. Un clone provenant d'une *autre* machine pourrait donc y transporter une identité qui n'est pas la sienne, avec des conséquences inconnues sur les mises à jour ou le support. À tester le jour venu, sur la machine sacrifiable, jamais dans l'urgence.
+====
 
 == 2026-07-20 — Sprint 0 terminé : issue de contact zVault publiée
 
