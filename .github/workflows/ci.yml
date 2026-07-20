@@ -16,16 +16,28 @@ jobs:
   freebsd-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build and test on FreeBSD
         uses: vmactions/freebsd-vm@v1
         with:
           usesh: true
           prepare: |
-            pkg install -y asciidoctor
+            # Asciidoctor est une gem Ruby : sous FreeBSD le paquet s'appelle
+            # rubygem-asciidoctor (textproc/), pas asciidoctor.
+            pkg install -y rubygem-asciidoctor
           run: |
+            # `set -e` est indispensable : sans lui, une erreur de validation
+            # n'interromprait pas le script et le job afficherait « OK » à tort.
+            set -e
+
             # TODO(sprint 1) : ajouter la compilation de src/cli/ une fois
             # du code présent.
-            find docs -name '*.adoc' -exec asciidoctor --safe-mode=safe -o /dev/null {} \;
+            # Boucle `for` volontairement, et non `find -exec` : find ignore le
+            # code de retour de -exec, ce qui laissait passer un document
+            # invalide sans faire échouer le job.
+            for doc in $(find . -name '*.adoc' -not -path './.git/*'); do
+              echo "Validation : ${doc}"
+              asciidoctor --safe-mode=safe -o /dev/null "${doc}"
+            done
             echo "OK : documents AsciiDoc valides."
