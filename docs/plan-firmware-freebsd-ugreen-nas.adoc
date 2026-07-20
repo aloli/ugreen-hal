@@ -468,7 +468,7 @@ Objectif : lever toute ambiguïté avant d'investir du temps de développement, 
 |Vous (fait)
 
 |5
-|Télécharger l'image ISO zVault (version `13.3-MASTER-202505042329`, disponible sur `github.com/zvaultio/Community/releases`) et préparer la clé USB bootable via `dd` (voir `scripts/prepare-usb-zvault.sh`, mis à jour v1.5 avec la commande exacte tirée du wiki officiel du projet).
+|Télécharger l'image ISO zVault (version `13.3-MASTER-202505042329`, disponible sur `github.com/zvaultio/Community/releases`) et préparer la clé USB bootable. *Mise à jour v1.10* : les guides commentés `prepare-usb-zvault.sh` et `prepare-usb-systemrescue.sh` sont remplacés par `scripts/prepare-usb.cr`, programme Crystal interactif qui déroule la procédure (choix de l'image, vérification SHA-256, sélection du disque parmi les seuls périphériques externes, confirmation par recopie de l'identifiant, écriture, éjection).
 |Vous, avec le script/les commandes fournis
 
 |6
@@ -578,7 +578,7 @@ ugreen-hal/
 │   └── xigmanas/               # extension au format XigmaNAS (etc/ + gui/ PHP + init + version)
 ├── scripts/
 │   ├── backup-nas.sh
-│   └── prepare-usb-zvault.sh
+│   └── prepare-usb.cr        # préparation interactive des clés USB (Crystal)
 ├── tests/
 └── .github/workflows/ci.yml  # build automatique via vmactions/freebsd-vm
 ----

@@ -188,7 +188,7 @@ Procédure (à dérouler sur le NAS, depuis un live Linux, PAS via ce script) :
   # de l'image et l'empreinte sha256 obtenue.
 
 Une fois cette étape validée, et elle seule, le NAS peut être démarré sur
-la clé zVault (voir prepare-usb-zvault.sh) sans risque de perte définitive.
+la clé zVault (voir prepare-usb.cr) sans risque de perte définitive.
 PROC_EOF
 
 exit 1
