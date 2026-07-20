@@ -35,13 +35,38 @@ Procédure (à exécuter à la main dans le Terminal macOS, PAS via ce script) :
   # -> noter le nom exact, ex. /dev/disk4 (le disque ENTIER, pas /dev/disk4s1)
 
   # 3. Vérifier une deuxième fois qu'il s'agit bien de la clé USB de test,
-  #    jamais du disque interne du Mac.
+  #    jamais du disque interne du Mac. Contrôler la taille affichée.
 
-  # 4. Écrire l'image (opération destructrice, sans confirmation ni retour
+  # 4. Démonter les systèmes de fichiers, sans éjecter le périphérique
+  diskutil unmountDisk /dev/diskN
+
+  # 5. Écrire l'image (opération destructrice, sans confirmation ni retour
   #    arrière possible) :
   sudo dd if=zVault-13.3-MASTER-202505042329-ca844f8808.iso of=/dev/diskN bs=1M conv=sync
+  #
+  # Variante plus rapide (ajout du 20/07/2026, hors procédure officielle) :
+  # sur macOS, /dev/rdiskN est le périphérique en accès brut, dix à vingt
+  # fois plus rapide que /dev/diskN :
+  #     sudo dd if=zVault-....iso of=/dev/rdiskN bs=1m status=progress
+
+  # 6. Éjecter proprement
+  sync
+  diskutil eject /dev/diskN
 
 Source : github.com/zvaultio/Community/wiki/zVault-Installation (15/07/2026)
+
+ÉTAT DE LA VERSION (vérifié le 20/07/2026)
+  La release 13.3-MASTER-202505042329-ca844f8808 (04/05/2025) reste la plus
+  récente publiée : aucune nouvelle version en quatorze mois. À rapprocher
+  du risque de gouvernance documenté dans le plan de projet — le projet
+  n'est pas abandonné pour autant, mais son rythme de publication est à
+  surveiller.
+
+ORDRE DES OPÉRATIONS
+  Cette clé sert au sprint 2 (démarrage externe). Elle vient APRÈS la clé
+  SystemRescue et le clone de l'eMMC (voir prepare-usb-systemrescue.sh puis
+  backup-nas.sh), qui doivent être faits tant que le stockage interne est
+  encore intact.
 PROC_EOF
 
 exit 1
