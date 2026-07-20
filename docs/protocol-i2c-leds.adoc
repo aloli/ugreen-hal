@@ -13,16 +13,36 @@ Statut de ce document : le protocole ci-dessous est désormais *documenté avec 
 
 * Le contrôleur LED est vu par le noyau comme un périphérique sur le bus *SMBus I801* (contrôleur SMBus intégré au PCH Intel, périphérique PCI `0000:00:1f.4`, visible dans les journaux comme `i801_smbus`) — et non un bus I2C générique séparé. C'est une précision importante par rapport à la version précédente de ce document.
 * Chip ID détecté : `0xc5b2`.
-* Adresse esclave I2C/SMBus du contrôleur : `0x3a`.
+* Adresse esclave I2C/SMBus du contrôleur : `0x3a` — *attention, adresse en convention 7 bits (Linux)*. L'équivalent FreeBSD est `0x74` : voir la section « Convention d'adressage » ci-dessous, c'est le piège le plus coûteux identifié à ce jour.
 * Le module Linux qui le pilote côté UGOS s'appelle `leds-mcu` (`ug_led_driver_init`), mais le projet de référence utilisé ici pour le portage est l'implémentation *espace utilisateur* de `miskcoo/ugreen_leds_controller`, plus simple à porter vers FreeBSD qu'un module noyau Linux.
 * Modèle explicitement supporté par ce projet de référence : DXP2800 (voir ticket amont https://github.com/miskcoo/ugreen_leds_controller/issues/19).
 
 == Protocole (extrait du code de référence)
 
+=== Convention d'adressage : 7 bits (Linux) contre 8 bits (FreeBSD)
+
+[IMPORTANT]
+====
+*Point le plus important de ce document pour le sprint 3.* Linux et FreeBSD ne désignent pas les adresses I2C de la même façon : Linux utilise la convention *7 bits*, FreeBSD la convention *8 bits* (adresse décalée d'un bit vers la gauche, le bit de poids faible servant à distinguer lecture et écriture).
+
+En conséquence, l'adresse `0x3a` relevée sur la console Linux d'UGOS (sprint 0) *ne désigne rien sous FreeBSD*. L'adresse à utiliser est :
+
+[source]
+----
+0x3a << 1 == 0x74
+----
+
+Ignorer ce détail conduit à un échec silencieux, sans message d'erreur exploitable, que l'on est tenté d'attribuer au protocole, aux tailles de bloc ou au mauvais device node — c'est-à-dire à chercher partout sauf au bon endroit.
+
+*Source* : fil « NASync LED controller » du forum FreeBSD (https://forums.freebsd.org/threads/nasync-led-controller.100889/), ouvert le 21/12/2025 par un utilisateur travaillant sur un NASync sous FreeBSD 14.3-RELEASE, resté bloqué cinq semaines sur ce point précis, jusqu'à la réponse du 26/01/2026 : « FreeBSD and Linux use different conventions when talking about I2C addresses, 8-bit and 7-bit. If you do the math, 0x74 == 0x3a << 1. »
+
+*Statut* : non encore vérifié sur notre propre matériel — à confirmer au sprint 3, avant toute conclusion sur le reste du protocole.
+====
+
 === Bus et adressage
 
 * Bus : SMBus I801 (`/dev/i2c-N` détecté sous Linux via `/sys/class/i2c-dev/*/device/name` commençant par `SMBus I801 adapter`).
-* Adresse esclave : `0x3a`.
+* Adresse esclave : `0x3a` en convention Linux (7 bits), soit *`0x74` en convention FreeBSD* (8 bits) — voir l'encadré ci-dessus.
 * Transactions utilisées : SMBus *block* read/write (`I2C_SMBUS_I2C_BLOCK_DATA` côté Linux), pas de simples transactions octet-à-octet.
 
 === Identifiants de LED
@@ -117,6 +137,8 @@ Lecture d'un octet à l'adresse `0x80` : renvoie `1` si la dernière écriture a
 Point important corrigé par rapport à la version précédente de ce document : comme le contrôleur est sur le bus *SMBus I801* et que le projet de référence utilise explicitement des transactions *SMBus block* (pas de l'I2C générique), le point d'entrée FreeBSD le plus probable n'est pas `iic(4)` seul, mais la pile SMBus de FreeBSD :
 
 * Le contrôleur SMBus intégré au PCH Intel est pris en charge sous FreeBSD par le pilote `ichsmb(4)`, qui expose un bus `smbus(4)` généraliste, accessible en espace utilisateur via `/dev/smb0` (ou similaire) et l'API définie dans `<dev/smbus/smb.h>`.
+* *Réserve sur cette hypothèse (ajoutée le 20/07/2026)* : le fil « NASync LED controller » du forum FreeBSD rapporte que, sur un NASync sous FreeBSD 14.3, le contrôleur n'apparaît *pas* sous le nom `I801` comme sous Linux, mais comme « Intel Alder Lake SMBus controller » (port `0xefa0`). Le même auteur signale que `iic1` et `smb2` sont tous deux adossés à `iicbus1` mais renvoient des adresses différentes selon que l'on interroge le bus via `i2c(4)` ou `smbmsg(4)`. Le nom exact du device node et le bon point d'entrée (`smbus(4)` ou `iic(4)`) sont donc à *déterminer par observation* au sprint 3, et non à supposer.
+* *Balayage du bus rapporté par ce même fil* : périphériques détectés aux adresses `0x10`, `0x74`, `0x88`, `0x94`, `0xa4`. La présence de `0x74` corrobore la conversion 7 bits → 8 bits décrite plus haut.
 * FreeBSD expose des ioctls SMBus (transactions quick/byte/word/block) directement analogues aux transactions `I2C_SMBUS_I2C_BLOCK_DATA` utilisées par le code Linux de référence — la traduction du protocole ci-dessus devrait donc être directe, sans avoir besoin de reconstruire les trames à la main sur un bus I2C générique.
 * Reste à vérifier au sprint 3, sur le NAS réel sous FreeBSD/zVault : que `ichsmb(4)` détecte bien le contrôleur SMBus du DXP2800, et que les tailles de bloc (11 octets en lecture, 12 en écriture) sont acceptées telles quelles par l'implémentation FreeBSD du protocole SMBus block (certaines piles limitent strictement à 32 octets, ce qui est largement suffisant ici).
 
@@ -134,7 +156,16 @@ Le squelette ci-dessous remplace la version précédente (basée sur `iic(4)`) p
 #include <string.h>
 #include <unistd.h>
 
-#define UGREEN_LED_SMB_ADDR   0x3a   /* confirmé, sprint 0 */
+/* Adresse du contrôleur LED.
+ *
+ * Relevée à 0x3a sur la console Linux d'UGOS (sprint 0), mais Linux
+ * exprime les adresses I2C sur 7 bits et FreeBSD sur 8 bits : il faut
+ * donc décaler d'un bit. 0x3a << 1 == 0x74.
+ *
+ * Utiliser 0x3a tel quel sous FreeBSD ne désigne aucun périphérique et
+ * échoue sans message exploitable — voir la section « Convention
+ * d'adressage » de ce document. */
+#define UGREEN_LED_SMB_ADDR   0x74   /* = 0x3a << 1, à confirmer sprint 3 */
 #define UGREEN_LED_POWER      0
 #define UGREEN_LED_NETDEV     1
 #define UGREEN_LED_DISK1      2
@@ -175,6 +206,7 @@ ugreen_led_set_onoff(int fd, uint8_t led_id, uint8_t on)
 
 	struct smbcmd cmd;
 	memset(&cmd, 0, sizeof(cmd));
+	cmd.slave = UGREEN_LED_SMB_ADDR;  /* 0x74 — convention 8 bits FreeBSD */
 	cmd.cmd = led_id;        /* adresse "commande" SMBus = 0x00 + ID */
 	cmd.wbuf = block;
 	cmd.wcount = sizeof(block);
@@ -215,4 +247,7 @@ main(void)
 
 |2026-07-15 (suite, pendant l'attente de livraison du matériel réseau)
 |Étude complète du code source de référence `miskcoo/ugreen_leds_controller` (`cli/i2c.cpp`, `cli/ugreen_leds.cpp`) et de son README. Protocole entièrement documenté : bus SMBus I801, adresse `0x3a`, format des blocs de lecture (11 octets, `0x81+ID`) et d'écriture (12 octets, `0x00+ID`), table des sous-commandes. Correction importante : la cible FreeBSD la plus probable est `smbus(4)`/`ichsmb(4)`, pas `iic(4)` seul. Aucun test réel sur FreeBSD encore tenté — nécessite le NAS de test et un environnement FreeBSD fonctionnel (sprint 1/3).
+
+|2026-07-20
+|Recherche de l'état de l'art avant le premier essai physique. Découverte du fil « NASync LED controller » du forum FreeBSD (https://forums.freebsd.org/threads/nasync-led-controller.100889/), ouvert le 21/12/2025 : un utilisateur tente exactement le même portage sur un NASync sous FreeBSD 14.3-RELEASE, sans dépôt ni code publié. Deux enseignements repris ci-dessus : (1) l'adresse `0x3a` est en convention 7 bits Linux et vaut `0x74` sous FreeBSD — cause d'un blocage de cinq semaines pour l'auteur du fil, corrigé ici avant même le premier essai ; (2) le contrôleur n'apparaît pas comme `I801` sous FreeBSD mais comme « Intel Alder Lake SMBus controller », et le choix entre `iic(4)` et `smbus(4)` reste à déterminer par observation. Aucune de ces deux informations n'est encore vérifiée sur notre matériel.
 |===

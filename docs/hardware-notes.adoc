@@ -118,7 +118,8 @@ Ce document consigne, modèle par modèle, les relevés matériels effectués ph
 |ITE IT8613, révision 8613.12 (ligne `Found chip IT8613 rev 8613. 12`)
 
 |Watchdog
-|Exposé sous Linux comme « IT87 WDT », `/dev/watchdog0`, timeout matériel 20 minutes
+|Exposé sous Linux comme « IT87 WDT », `/dev/watchdog0`, timeout matériel 20 minutes. +
+*Piège identifié le 20/07/2026* : ce watchdog est *actif au niveau du BIOS*. Sous UGOS, un service le « nourrit » en continu ; sous un système alternatif qui ne le connaît pas, plus personne ne le fait — la machine redémarre alors toute seule au bout du délai, sans message d'erreur, ce qui se confond aisément avec un plantage ou une instabilité matérielle. Des utilisateurs ayant installé d'autres systèmes sur du matériel UGREEN recommandent explicitement de le *désactiver dans le BIOS* (`Ctrl-F12`) avant toute installation : « Ctrl-F12 on boot to get into the BIOS, disable the watchdog, set boot device appropriately » (https://forums.truenas.com/t/actual-installs-on-ugreen-hardware-observations-experiences-tips/6910). À vérifier au premier passage dans le BIOS
 
 |Buzzer
 |Ligne `DXP2800 SATA&beep init` observée pendant le chargement du pilote UGREEN
@@ -143,8 +144,11 @@ Pour mémoire, UGOS fait tourner un ensemble de services propriétaires au-dessu
 |Entrée de boot observée
 |Une seule entrée, nommée `UGOSPRO-NAS` (label générique de la ligne de firmware, indépendant du hostname réseau `DXP2800-2CFF`)
 
+|Touche d'accès au BIOS
+|*`Ctrl-F12` au démarrage* (et non les touches usuelles Suppr/F2/F7/F11 d'un BIOS AMI). Source : retours d'utilisateurs ayant installé d'autres systèmes sur du matériel UGREEN, forum TrueNAS (https://forums.truenas.com/t/actual-installs-on-ugreen-hardware-observations-experiences-tips/6910), relevé le 20/07/2026 — *à confirmer par observation directe au premier démarrage sur clé USB*
+
 |Écran affiché avant GRUB
-|Un splash avec le logo « UGREEN » s'affiche avant le menu GRUB — confirme que la sortie HDMI est active dès les toutes premières étapes du démarrage, cohérent avec les conclusions déjà tirées sur le firmware AMI standard
+|Un splash avec le logo « UGREEN » s'affiche avant le menu GRUB — confirme que la sortie HDMI est active dès les toutes premières étapes du démarrage, cohérent avec les conclusions déjà tirées sur le firmware AMI standard. Mode verbeux confirmé le 20/07/2026 comme *comportement par défaut* : aucune manipulation n'est nécessaire pour obtenir le journal de démarrage complet, un simple appui sur le bouton d'alimentation suffit
 
 |Conséquence pour le projet
 |GRUB étant un bootloader standard (pas un chargeur propriétaire), il sera possible, en phase 4 (remplacement du firmware interne), d'envisager d'y ajouter une entrée pour FreeBSD/zVault plutôt que de devoir remplacer tout le mécanisme de démarrage — à confirmer le moment venu.
@@ -167,4 +171,7 @@ Pour mémoire, UGOS fait tourner un ensemble de services propriétaires au-dessu
 
 |2026-07-15 (second relevé)
 |Second boot photographié : chip ID I2C (`0xc5b2`), adresse (`0x3a`), chip watchdog (`IT8613`) et pilote boutons (`ug-gpiokey`) tous identiques au premier relevé — *reproductibilité confirmée*, ce qui renforce la fiabilité de ces données pour le sprint 3. Ajout des informations sur la chaîne de démarrage (GRUB) et du pilote `r8152`, absents du premier relevé.
+
+|2026-07-20
+|Aucun relevé physique nouveau : entrées ajoutées à partir de retours d'utilisateurs publiés (touche BIOS `Ctrl-F12`, watchdog à désactiver dans le BIOS) et d'une confirmation directe de l'utilisateur (mode verbeux HDMI = comportement par défaut). Les deux premières sont explicitement *non vérifiées sur notre exemplaire* et doivent l'être au premier démarrage sur clé USB. Signalé aussi ce jour, sans conséquence immédiate pour le DXP2800 : les sources publiques se contredisent sur la référence exacte de la puce Aquantia 10 GbE des modèles supérieurs (AQC113, AQC107 ou AQC117 selon les auteurs) — elles s'accordent en revanche toutes sur l'absence de pilote FreeBSD mature, seul point qui compte pour nos décisions d'achat.
 |===
