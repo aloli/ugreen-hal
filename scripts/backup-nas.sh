@@ -28,8 +28,22 @@
 #    USER-DATA) et les partitions de démarrage boot0/boot1, qu'une image
 #    générique de modèle ne reproduit pas nécessairement à l'identique.
 #
-# Autrement dit : le retour à UGOS est probablement possible sans ce clone,
-# mais ce « probablement » n'a été vérifié par personne. Le clone coûte une
+# MISE À JOUR DU 20/07/2026 — analyse d'un paquet de firmware réel
+# ----------------------------------------------------------------
+# Un paquet a été téléchargé et disséqué (voir docs/hardware-notes.adoc,
+# section « Paquet de firmware UGOS »). Ce qu'il apprend :
+#
+#  - c'est une archive tar, pas une image disque : dd dessus ne produit
+#    rien d'amorçable ;
+#  - elle contient bien un système complet (rootfs, noyau, initrd, outil
+#    de partitionnement) — la matière existe donc publiquement ;
+#  - MAIS son point d'entrée est `ugpt upgrade`, et le paquet déclare une
+#    version minimale requise (min_version 1.12.0.1). Il suppose donc une
+#    installation UGOS déjà présente. Sur un eMMC effacé, il n'y a rien à
+#    mettre à niveau.
+#
+# Autrement dit : le retour à UGOS est peut-être possible sans ce clone,
+# mais aucun chemin documenté ne le permet à ce jour. Le clone coûte une
 # soirée et quelques Go ; le vérifier à ses dépens coûterait le NAS.
 #
 # Sources : https://ai.ugreen.com/pages/downloads

@@ -132,6 +132,39 @@ Ce document consigne, modèle par modèle, les relevés matériels effectués ph
 
 Pour mémoire, UGOS fait tourner un ensemble de services propriétaires au-dessus de ce Debian : `ugdriver.service`, `humonitor.service`, `ugbus.service` (bus de message interne), `storage_serv`, `discovery_serv`, `domain_tool` (en échec au démarrage observé), `taskmgr_serv`, `thumb_serv`, `gateway_serv`, `transcode_serv`, `entry_serv`/`startx` (interface graphique X11), ainsi que PostgreSQL (`ugreen-psql`) et Redis en interne, nginx en reverse proxy. Ces services ne concernent pas le projet (ils disparaissent avec UGOS), mais expliquent pourquoi le journal de démarrage est aussi chargé.
 
+=== Paquet de firmware UGOS (analyse du 20/07/2026)
+
+Analyse d'un paquet téléchargé depuis le centre de téléchargement UGREEN : `release_20260624-firmware_image-1.17.0.95-intel_release_amd64_6.18.img`, 1,75 Gio, version 1.17.0.0095, compilé le 30/06/2026.
+
+Le paquet lui-même n'est pas versionné dans ce dépôt : il pèse 1,75 Gio par version et contient du code propriétaire UGREEN, qui n'a pas à être redistribué depuis un dépôt public sous licence BSD. Seules les conclusions sont consignées ici.
+
+[cols="2,3"]
+|===
+|Constat |Détail
+
+|Format réel
+|Archive *tar GNU*, malgré l'extension `.img`. Ce n'est donc pas une image disque écrivable telle quelle sur un périphérique bloc — `dd` sur cette archive ne produirait rien d'amorçable.
+
+|Contenu
+|Un système complet : `rootfs-base.squashfs` (792 Mo), `kernel.squashfs` (86 Mo), `fw.squashfs` (156 Mo), `apt.squashfs` (142 Mo), `oem.squashfs`, `vmlinuz`, `initrd.img`, plus `ugreen.bz2` (496 Mo). Accompagné de deux exécutables : `ugupdate` (13 Mo) et `ugpt` (« ugreen package tool », archive auto-extractible Makeself).
+
+|Point d'entrée
+|`ugospro-upgrade`, script de trois lignes qui appelle `ugpt upgrade -i "$1" -a amd64`. Le verbe est explicitement *upgrade*.
+
+|Version minimale requise
+|`ugreen-os-release.json` déclare `min_version: 1.12.0.1`. Le paquet suppose donc une installation UGOS *déjà présente*, d'une version au moins égale.
+
+|Système
+|Debian GNU/Linux 12 (bookworm), noyau 6.18, `amd64` — cohérent avec les relevés de console du sprint 0.
+|===
+
+*Conséquence pour la stratégie de sauvegarde.* Deux affirmations opposées ont circulé sur ce projet, et aucune n'est exacte :
+
+* « UGREEN ne fournit aucune image de restauration » — *faux*. Le paquet contient bien l'intégralité de la matière nécessaire à reconstruire un système : racine, noyau, initrd, et même un outil de partitionnement.
+* « Le firmware étant téléchargeable, la sauvegarde est inutile » — *non démontré*. Le point d'entrée documenté est une mise à niveau exigeant une installation préexistante en version ≥ 1.12.0.1. Sur un eMMC effacé, il n'y a rien à mettre à niveau.
+
+L'inconnue qui subsiste : `ugpt` accepte-t-il d'autres verbes qu'`upgrade` — une installation à nu, une restauration ? Sa charge utile est une archive Makeself qui n'a pas pu être ouverte proprement lors de cette analyse. Tant que ce point n'est pas tranché, *le clone de l'eMMC reste la seule voie de retour certaine*, et il ne coûte qu'une soirée.
+
 === Chaîne de démarrage (bootloader)
 
 [cols="2,3"]

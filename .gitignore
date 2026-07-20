@@ -16,3 +16,9 @@ qemu/build/
 # Binaires construits par src/cli/Makefile
 src/cli/ugreen-led-ctl
 src/cli/*.o
+
+# Paquets de firmware UGOS téléchargés chez UGREEN : 1,75 Go par version, et
+# surtout du code propriétaire qui n'a pas à être redistribué depuis un dépôt
+# public sous licence BSD. Analysés localement, jamais versionnés — les
+# conclusions vivent dans docs/hardware-notes.adoc.
+firmware-ugreen/
