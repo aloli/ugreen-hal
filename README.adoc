@@ -26,7 +26,9 @@ Development and testing are carried out on a *UGREEN NASync DXP2800* (Intel N100
 
 == Status
 
-The project is currently in the hardware reconnaissance phase (sprint 0/1). No porting code has been tested on real hardware yet — the test NAS is currently waiting on additional network hardware (a WiFi-to-Ethernet bridge) to get stable network access. See link:docs/journal.adoc[] for the detailed log.
+Sprint 0 is complete: the repository is public, the SMBus protocol of the LED controller is fully reverse-documented, and contact has been established with the zVault team (https://github.com/zvaultio/Community/issues/37[Community#37]).
+
+A first userland utility (`src/cli/ugreen-led-ctl`) now exists and builds, *but has never run on real hardware*. Validating it on a DXP2800 under FreeBSD is the next milestone (sprint 3.3). Until that happens, treat every protocol claim in this repository as documented-but-unverified. See link:docs/journal.adoc[] for the detailed log.
 
 [NOTE]
 ====
@@ -54,24 +56,36 @@ The detailed technical documentation under `docs/` is currently written in Frenc
 |`docs/catalogue-nas-ugreen.adoc`
 |Comparison catalogue of available UGREEN NAS models, used to plan hardware purchases.
 
+|`docs/prise-de-contact.adoc`
+|Ready-to-publish outreach messages for the zVault and XigmaNAS communities, with their delivery status.
+
 |`src/cli/`
-|FreeBSD userland utilities, distribution-agnostic (upcoming — sprint 3).
+|The HAL core: FreeBSD userland utilities in C, knowing only `smbus(4)`/`gpio(4)` — never zVault or XigmaNAS. Currently `ugreen-led-ctl`.
 
 |`integrations/`
 |Thin per-distribution integration layers (`zvault/`, `xigmanas/`), added once the core is validated (upcoming).
 
+|`qemu/`
+|Local FreeBSD build bench (QEMU, amd64). Compiles `src/cli/` against real FreeBSD headers and produces a binary that runs on the NAS. Cannot emulate the LED controller — that is physical hardware.
+
 |`scripts/`
-|Supporting scripts (backup, USB stick preparation, etc.).
+|Supporting tooling, written in Crystal or shell: `prepare-usb.cr` (interactive USB stick preparation), `backup-nas.sh` (cloning the internal eMMC before any firmware work).
 
 |`tests/`
 |Automated tests (upcoming).
 
 |`.github/workflows/ci.yml`
-|Continuous integration on FreeBSD (via `vmactions/freebsd-vm`).
+|Continuous integration on FreeBSD (via `vmactions/freebsd-vm`): validates every AsciiDoc document and builds `src/cli/`.
 
 |`CLAUDE.md`
 |Pointer file for Claude Code (project context lives in the AsciiDoc docs above).
 |===
+
+== Language policy
+
+The HAL core (`src/cli/`) is written in *C*, and deliberately so: it is meant to be proposed upstream to FreeBSD, zVault and XigmaNAS, whose base systems and review processes are C. A kernel-side driver, should one become necessary, could not be written in anything else.
+
+Supporting tooling that runs on the developer's machine (`scripts/`) is written in *Crystal* where it earns its keep, and in shell otherwise. Crystal is available on FreeBSD (`lang/crystal`), but shipping a language runtime onto a NAS appliance to drive four LEDs would be disproportionate, and would close the door on upstream contribution.
 
 == License
 
