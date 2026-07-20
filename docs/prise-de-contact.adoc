@@ -109,8 +109,8 @@ Philippe
 |Destinataire |État |Note
 
 |zVault (`zvaultio/Community`)
-|*À publier*
-|Seule action réellement bloquante du sprint 0. Ne dépend d'aucun matériel.
+|*Publiée le 20/07/2026*
+|Issue https://github.com/zvaultio/Community/issues/37, ouverte par le compte `papilip`, sans étiquette ni réponse à ce jour. Clôt la dernière action bloquante du sprint 0.
 
 |XigmaNAS (SourceForge)
 |Différé

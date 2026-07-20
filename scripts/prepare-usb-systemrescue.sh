@@ -91,8 +91,9 @@ Procédure (à exécuter à la main dans le Terminal macOS, PAS via ce script) :
   #   chip IT8613 redémarre la machine au bout de 20 minutes si aucun
   #   système ne le nourrit, et un clone de 32 Gio peut dépasser ce délai.
   # - Au menu de SystemRescue, l'entrée par défaut convient.
-  # - Le clavier est en QWERTY par défaut. Pour passer en AZERTY :
-  #       loadkeys fr
+  # - Disposition clavier : SystemRescue démarre en QWERTY US, ce qui
+  #   correspond au matériel utilisé sur ce projet. Rien à changer.
+  #   (Pour une autre disposition : loadkeys fr, loadkeys be, etc.)
   #
   # Enchaîner ensuite sur la procédure de backup-nas.sh.
 PROC_EOF
