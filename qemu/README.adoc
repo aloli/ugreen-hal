@@ -1,0 +1,81 @@
+= Banc de test QEMU — compilation FreeBSD
+:toc:
+:sectnums:
+
+Banc de compilation FreeBSD local, sur la machine de développement. Livrable de l'environnement de développement prévu au sprint 1 du plan de projet.
+
+== À quoi il sert, et à quoi il ne sert pas
+
+[cols="1,3"]
+|===
+|Il permet |Il ne permet pas
+
+|Compiler `src/cli/` contre les *véritables* en-têtes FreeBSD (`dev/smbus/smb.h`), ce que la machine de développement — un Mac — ne peut pas faire.
+|Valider le protocole SMBus. Le contrôleur LED d'UGREEN est un composant physique de la carte mère : il ne s'émule pas.
+
+|Produire un binaire *FreeBSD/amd64*, directement copiable sur le DXP2800.
+|Dire si une LED s'allume. C'est le travail du sprint 3.3, sur le matériel réel.
+
+|Vérifier que `struct smbcmd` est correctement remplie et que les ioctls existent.
+|Remplacer le NAS. Aucune émulation ne reproduit une carte mère UGREEN.
+|===
+
+== Pourquoi amd64 plutôt qu'aarch64
+
+Le banc voisin (`prod-crystal/qemu`, projet clevis-zfs) utilise une image *aarch64*, qui bénéficie de l'accélération matérielle HVF sur Mac Apple Silicon et démarre en quelques secondes.
+
+Ce banc-ci est en *amd64*, délibérément : le DXP2800 est un Intel N100, et l'intérêt principal est de produire un binaire directement exécutable sur le NAS. Contrepartie assumée : sur un Mac ARM, l'amd64 tourne en émulation logicielle (TCG), sans accélération — le démarrage prend plusieurs minutes. C'est sans importance pour l'usage visé : on compile 300 lignes de C, pas un `buildworld`.
+
+Les deux bancs peuvent tourner simultanément : celui-ci utilise le port SSH 2224, les ports 2222 et 2223 étant pris par clevis-zfs.
+
+== Utilisation
+
+[source,shell]
+----
+./00-fetch-image.sh    # 1re fois : ~600 Mo à télécharger
+./01-prepare-vm.sh     # disque + ISO cloud-init
+./10-run.sh            # démarre la VM en tâche de fond
+./20-build.sh          # compile src/cli/ et rapatrie le binaire
+./99-stop.sh           # arrête la VM
+----
+
+Le binaire produit atterrit dans `qemu/build/ugreen-led-ctl-freebsd-amd64`.
+
+Suivre le démarrage, qui est long :
+
+[source,shell]
+----
+tail -f logs/builder.log
+----
+
+Se connecter à la VM à la main :
+
+[source,shell]
+----
+ssh -i ssh/id_ed25519 -p 2224 freebsd@127.0.0.1
+----
+
+== Remise à zéro
+
+La VM est jetable. En cas de doute sur son état :
+
+[source,shell]
+----
+./99-stop.sh
+rm -f run/builder.qcow2
+./01-prepare-vm.sh
+./10-run.sh
+----
+
+L'image de base (`images/`) n'est pas touchée : seul le disque de travail est recréé.
+
+== Prérequis
+
+* `qemu` (`brew install qemu`) — fournit `qemu-system-x86_64`, `qemu-img` et le firmware EDK2.
+* `hdiutil`, natif macOS, pour fabriquer l'ISO cloud-init.
+
+Le chemin du firmware EDK2 est fixé dans `lib/common.sh` (`/opt/homebrew/share/qemu/edk2-x86_64-code.fd`) ; à ajuster sur une installation Homebrew non standard.
+
+== Contenu non versionné
+
+`images/`, `run/`, `logs/`, `ssh/` et `build/` sont ignorés par Git : ce sont des artefacts locaux, dont plusieurs Gio d'images disque.

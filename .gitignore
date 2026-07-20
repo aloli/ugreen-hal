@@ -4,3 +4,15 @@
 # Configuration Claude Code personnelle (permissions locales, machine de dev)
 .claude/settings.local.json
 .claude/.cc-writes/
+
+# Artefacts locaux du banc QEMU : images disque de plusieurs Gio, clés SSH
+# de test, journaux et binaires construits.
+qemu/images/
+qemu/run/
+qemu/logs/
+qemu/ssh/
+qemu/build/
+
+# Binaires construits par src/cli/Makefile
+src/cli/ugreen-led-ctl
+src/cli/*.o
