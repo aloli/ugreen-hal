@@ -354,7 +354,16 @@ Attention, la capacité ne règle pas tout : quelle que soit la taille de la cl�
 |Le bureau de travail n'a pas de prise Ethernet filaire, uniquement du WiFi. Or ni le DXP2800 ni l'IP-KVM retenu (GL.iNet Comet GL-RM1) n'ont de WiFi intégré : sans ce pont (ou un câble tiré depuis la box), ni le SSH quotidien (sprint 0 et suivants) ni l'IP-KVM ne peuvent fonctionner.
 |Un routeur de voyage GL.iNet en mode « WISP » (client WiFi → ports Ethernet), par exemple le GL-SFT1200 (Opal, ports Gigabit) plutôt que le GL-MT300N-V2 (Mango, limité à 100 Mbps) : https://www.amazon.fr/GL-iNet-GL-SFT1200-Routeur-s%C3%A9curis%C3%A9-r%C3%A9p%C3%A9teur/dp/B09N72FMH5. Alternative toujours préférable si possible : tirer un câble Ethernet physique jusqu'au bureau, plus simple, plus fiable, et ce qu'un NAS préfère de toute façon. +
  +
-*Relevé du 20/07/2026 (fiche officielle GL.iNet)* : l'Opal dispose de *1 port WAN et 2 ports LAN* gigabit, plus un USB 2.0. Les deux ports LAN suffisent exactement aux besoins actuels — le NAS de test et le KVM Comet — donc aucun achat complémentaire n'est nécessaire à ce stade. La question ne se posera qu'au sprint 5, avec un second NAS : un simple *switch gigabit 5 ports* (15 à 20 €) branché sur un port LAN de l'Opal résout le problème. Le GL-MT6000 « Flint 2 » (2× 2,5 GbE + 4× 1 GbE, environ 150 €) offrirait davantage, mais son débit resterait plafonné par la même liaison WiFi montante : le nombre de ports n'est pas le goulot d'étranglement, la liaison sans fil l'est.
+*Relevé du 20/07/2026 (fiche officielle GL.iNet)* : l'Opal dispose de *1 port WAN et 2 ports LAN* gigabit, plus un USB 2.0.
+
+*Décision du 20/07/2026 — remplacement de l'Opal par un GL-AX1800 « Flint »*. L'Opal étant cédé, et l'objectif devenant de raccorder *quatre NAS* (sprint 5, généralisation multi-modèles) plus le KVM Comet sur un seul boîtier, ses deux ports LAN ne suffisent plus. Modèle retenu : *GL-AX1800 « Flint »* (85,82 € HT constatés sur Amazon), de préférence au *GL-MT6000 « Flint 2 »* (163,99 € HT). Justification :
+
+* *Le compte de ports est bon* : 4 ports LAN gigabit, auxquels s'ajoute le port WAN. En mode répéteur la liaison montante passe par le WiFi, laissant le port WAN inutilisé ; la documentation officielle décrit explicitement sa conversion en LAN (INTERNET → Ethernet → gestion des ports), et cite ce cas d'usage précis. Soit *5 ports LAN* : quatre NAS et le Comet.
+* *Mode répéteur confirmé*, en WISP par défaut — le routeur crée son propre sous-réseau et fait pare-feu, comme l'Opel qu'il remplace.
+* *L'argument du Flint 2 ne tient pas ici* : il n'offre que *deux* ports à 2,5 Gb/s. Avec quatre NAS, deux au mieux en bénéficieraient, les autres retombant sur du gigabit. Le débit reste de toute façon plafonné par la liaison WiFi montante, bien inférieure au gigabit.
+* *Réserve* : cinq appareils sur cinq ports ne laissent aucune marge. Tout ajout ultérieur (portable, second KVM, NAS supplémentaire) imposera un switch gigabit — à 15-20 €, ce qui reste très inférieur aux 78 € HT d'écart entre les deux modèles.
+
+Alternative toujours préférable si elle est possible : tirer un câble Ethernet physique jusqu'au bureau, ce qui supprime le goulot d'étranglement WiFi au lieu de le contourner.
 |===
 
 === Liste d'achat (matériel complémentaire, projet `papilip`)
@@ -384,9 +393,9 @@ Amazon bloque la lecture automatisée de ses pages produit (règles `robots.txt`
 |https://www.amazon.fr/Elements-Disque-Portable-Externe-Noir/dp/B06VVS7S94
 |≈ 50-60 €
 
-|Pont WiFi vers Ethernet (GL.iNet GL-SFT1200 « Opal ») — *ajouté en v1.0, prérequis avant le sprint 0 si aucun câble Ethernet n'est tiré jusqu'au bureau*
-|https://www.amazon.fr/GL-iNet-GL-SFT1200-Routeur-s%C3%A9curis%C3%A9-r%C3%A9p%C3%A9teur/dp/B09N72FMH5
-|≈ 40-50 €
+|Pont WiFi vers Ethernet — *remplacé en v1.10* : le GL-SFT1200 « Opal » acheté en v1.0 est cédé, ses deux ports LAN ne suffisant plus à l'objectif de quatre NAS sur un seul boîtier. Remplacé par le *GL.iNet GL-AX1800 « Flint »* (WiFi 6, 4 ports LAN + port WAN convertible en LAN = 5 ports, mode répéteur/WISP confirmé)
+|https://www.amazon.fr/dp/B09HBW45ZJ
+|≈ 85,82 € HT
 
 |IP-KVM — *acheté (v1.3)* : GL.iNet Comet (GL-RM1)
 |Achat effectué. Rappel matériel (RM1, Ethernet uniquement, pas de WiFi) : il devra être branché en HDMI + USB sur le NAS, et sur un port LAN du GL-SFT1200 pour sa propre connectivité réseau.
