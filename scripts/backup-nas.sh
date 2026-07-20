@@ -6,15 +6,35 @@
 # STATUT : guide commenté vérifié sur documentation, non encore exécuté sur
 # le matériel réel. À dérouler à la main, étape par étape.
 #
-# POURQUOI CE CLONE EST OBLIGATOIRE
-# ---------------------------------
-# UGREEN ne publie aucune image de restauration d'UGOS. Les utilisateurs
-# ayant installé d'autres systèmes sur ce matériel clonent le stockage
-# interne avant de le remplacer ; une éventuelle image constructeur serait
-# spécifique au numéro de série de l'appareil. Sans clone préalable, le
-# retour à UGOS est définitivement perdu.
-# Source : forum TrueNAS, « Actual installs on uGreen hardware »
-# https://forums.truenas.com/t/actual-installs-on-ugreen-hardware-observations-experiences-tips/6910
+# POURQUOI CE CLONE RESTE RECOMMANDÉ (nuancé le 20/07/2026)
+# ----------------------------------------------------------
+# Formulation précédente corrigée : ce document affirmait qu'aucune image
+# de restauration n'existait. C'est trop catégorique. UGREEN publie bien un
+# « System Firmware » téléchargeable par modèle (ai.ugreen.com/pages/downloads),
+# au format .img, et au moins un utilisateur le décrit comme remplaçant le
+# système en place par UGOS, pas comme un simple correctif applicatif.
+#
+# Ce qui reste incertain, et justifie le clone malgré tout :
+#  - La page officielle en parle comme d'une MISE À JOUR (« Use online update
+#    unless you specifically need a local firmware package », « confirm the
+#    update direction ») : vocabulaire d'un système déjà en place, pas d'une
+#    restauration à nu.
+#  - Aucun rapport public consulté ne confirme une restauration réussie
+#    depuis un eMMC réellement effacé. Le fil dédié au DXP2800 se conclut
+#    sur « You should ask them ».
+#  - Plusieurs sources indiquent qu'en cas de corruption totale, le fichier
+#    est fourni par le support UGREEN et lié au numéro de série.
+#  - L'eMMC contient des partitions propres à l'exemplaire (UGREEN-SERVICE,
+#    USER-DATA) et les partitions de démarrage boot0/boot1, qu'une image
+#    générique de modèle ne reproduit pas nécessairement à l'identique.
+#
+# Autrement dit : le retour à UGOS est probablement possible sans ce clone,
+# mais ce « probablement » n'a été vérifié par personne. Le clone coûte une
+# soirée et quelques Go ; le vérifier à ses dépens coûterait le NAS.
+#
+# Sources : https://ai.ugreen.com/pages/downloads
+#           https://forums.truenas.com/t/how-to-update-dxp2800-system-firmware-downloaded-img-file-from-nas-ugreen-com-pages-downloads/62041
+#           https://forums.truenas.com/t/actual-installs-on-ugreen-hardware-observations-experiences-tips/6910
 #
 # POURQUOI PAS EN SSH DEPUIS UGOS
 # -------------------------------
