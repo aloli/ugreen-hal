@@ -31,24 +31,39 @@ module PrepareUsb
   # codées en dur : elles changent à chaque version, et une valeur périmée
   # dans le code serait pire que pas de valeur du tout — elle donnerait une
   # fausse assurance. L'utilisateur la copie depuis la page officielle.
+  # `url` est l'adresse de téléchargement direct, `page` la page officielle
+  # où la retrouver. Les URL directes se périment à chaque version : le
+  # programme les propose mais laisse toujours en coller une autre, et
+  # renvoie à `page` en cas d'échec. Une URL codée en dur qui ne répond
+  # plus ne doit jamais devenir un cul-de-sac.
   record Image,
     name : String,
     role : String,
     hint : String,
-    source : String
+    page : String,
+    url : String?
 
   IMAGES = [
     Image.new(
       name: "SystemRescue",
-      role: "live Linux — sert à cloner l'eMMC du NAS (voir backup-nas.sh)",
+      role: "live Linux — clone de l'eMMC du NAS (voir backup-nas.sh)",
       hint: "systemrescue-13.01-amd64.iso",
-      source: "https://www.system-rescue.org/Download/"
+      page: "https://www.system-rescue.org/Download/",
+      url: "https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/13.01/systemrescue-13.01-amd64.iso/download"
     ),
     Image.new(
       name: "zVault",
-      role: "installeur — démarrage externe du NAS (sprint 2)",
+      role: "installeur — première cible d'intégration (sprints 2 à 5)",
       hint: "zVault-13.3-MASTER-202505042329-ca844f8808.iso",
-      source: "https://github.com/zvaultio/Community/releases"
+      page: "https://github.com/zvaultio/Community/releases",
+      url: nil
+    ),
+    Image.new(
+      name: "XigmaNAS",
+      role: "installeur — seconde cible d'intégration (sprint 5bis)",
+      hint: "XigmaNAS-x64-LiveCD-14.3.0.5.iso",
+      page: "https://sourceforge.net/projects/xigmanas/files/XigmaNAS-14.3.0.5/",
+      url: nil
     ),
   ]
 
@@ -141,7 +156,7 @@ module PrepareUsb
         image = IMAGES[answer - 1]
         puts
         puts "  Image attendue : #{image.hint}"
-        puts "  Téléchargement : #{image.source}"
+        puts "  Page officielle : #{image.page}"
         return image
       end
       puts "  Saisir un numéro entre 1 et #{IMAGES.size}."
@@ -160,16 +175,105 @@ module PrepareUsb
       answer = ask("Chemin :")
       path = answer.empty? ? default : Path[answer].expand(home: true).to_s
 
-      if File.file?(path)
-        size = File.size(path)
-        puts
-        puts "  Trouvée : #{path}"
-        puts "  Taille  : #{human_size(size)}"
-        warn "Taille inhabituellement faible pour une ISO." if size < 100_000_000
-        return path
-      end
+      return describe_iso(path) if File.file?(path)
 
       puts "  Fichier introuvable : #{path}"
+      puts
+
+      if ask_yes_no("Le télécharger maintenant ?")
+        download(image, path)
+        return describe_iso(path) if File.file?(path)
+      end
+    end
+  end
+
+  def describe_iso(path : String) : String
+    size = File.size(path)
+    puts
+    puts "  Trouvée : #{path}"
+    puts "  Taille  : #{human_size(size)}"
+    warn "Taille inhabituellement faible pour une ISO." if size < 100_000_000
+    path
+  end
+
+  # Téléchargement via curl, présent d'origine sur macOS.
+  #
+  # -L suit les redirections, indispensable pour SourceForge et GitHub qui
+  # renvoient systématiquement vers un miroir. -C - reprend un transfert
+  # interrompu là où il s'est arrêté, ce qui évite de tout recommencer sur
+  # une ISO de plusieurs centaines de Mo. --fail transforme une page
+  # d'erreur HTTP en échec franc plutôt qu'en fichier HTML de 2 Ko
+  # silencieusement enregistré à la place de l'image.
+  def download(image : Image, destination : String)
+    title "Téléchargement"
+
+    suggestion = image.url
+    if suggestion
+      puts "  URL proposée :"
+      puts "    #{suggestion}"
+      puts
+      warn "Cette URL est codée dans le programme et se périme à chaque"
+      puts "       nouvelle version. En cas d'échec, prendre la bonne sur :"
+      puts "       #{image.page}"
+    else
+      puts "  Aucune URL directe n'est connue pour cette image : elle change"
+      puts "  à chaque publication. La récupérer sur la page officielle :"
+      puts "    #{image.page}"
+    end
+    puts
+
+    prompt = suggestion ? "URL (entrée vide pour accepter celle proposée) :" : "URL :"
+    answer = ask(prompt)
+    url = answer.empty? ? suggestion : answer
+
+    if url.nil? || url.empty?
+      raise Aborted.new("Aucune URL fournie.")
+    end
+
+    directory = File.dirname(destination)
+    Dir.mkdir_p(directory) unless Dir.exists?(directory)
+
+    puts
+    ok = run_interactive("curl", [
+      "--location",
+      "--fail",
+      "--continue-at", "-",
+      "--progress-bar",
+      # Sans délai d'expiration, un réseau injoignable fige le programme
+      # sans un mot d'explication. 20 s suffisent largement pour établir
+      # une connexion ; au-delà, mieux vaut un échec franc.
+      "--connect-timeout", "20",
+      # Coupure en cours de transfert : deux reprises automatiques, en
+      # s'appuyant sur --continue-at pour ne pas repartir de zéro.
+      "--retry", "2",
+      "--retry-delay", "5",
+      "--output", destination,
+      url,
+    ])
+
+    unless ok
+      partial = File.file?(destination) ? File.size(destination) : 0_i64
+
+      if partial > 0 && partial < 100_000_000
+        # Trop petit pour être une reprise utile, et probablement une page
+        # d'erreur HTML plutôt qu'une image : à supprimer, sinon le prochain
+        # passage la prendrait pour l'ISO.
+        File.delete(destination)
+        raise Aborted.new("Téléchargement échoué. Vérifier l'URL sur #{image.page}")
+      end
+
+      if partial > 0
+        puts
+        warn "Fichier partiel conservé (#{human_size(partial)}) pour permettre"
+        puts "       une reprise : relancer et redemander le téléchargement,"
+        puts "       curl repartira d'où il s'est arrêté."
+        warn "Ce fichier INCOMPLET a la taille d'une vraie ISO. Ne jamais"
+        puts "       l'écrire sur une clé sans avoir vérifié son empreinte"
+        puts "       SHA-256 — c'est précisément le cas que cette"
+        puts "       vérification est là pour attraper."
+      end
+
+      raise Aborted.new("Téléchargement interrompu. Page officielle : #{image.page}")
     end
   end
 
@@ -331,13 +435,17 @@ module PrepareUsb
       puts "      clone de 32 Gio peut dépasser ce délai."
       puts "   3. Régler l'ordre de démarrage sur la clé USB."
       puts "   4. Dérouler la procédure de scripts/backup-nas.sh."
-    when "zVault"
+    when "zVault", "XigmaNAS"
       puts "  Clé prête. Le clone de l'eMMC doit avoir été fait AVANT de"
       puts "  démarrer là-dessus (voir scripts/backup-nas.sh)."
       puts
       puts "  Au premier démarrage, noter pour la documentation :"
       puts "   - la touche réelle du menu de démarrage (Ctrl-F12 annoncée) ;"
-      puts "   - ce que zVault détecte (disques, réseau igc, SMBus)."
+      puts "   - les disques détectés et le comportement du réseau (igc) ;"
+      puts "   - la présence d'un bus SMBus (dmesg | grep -i smb)."
+      puts
+      puts "  Rappel : le watchdog IT8613 doit être désactivé dans le BIOS,"
+      puts "  sans quoi la machine redémarre seule au bout de 20 minutes."
     end
   end
 
