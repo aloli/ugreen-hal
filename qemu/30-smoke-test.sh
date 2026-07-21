@@ -35,8 +35,14 @@ section() {
 section "Contrôleur SMBus vu par le noyau"
 run_ssh "dmesg | grep -iE 'ichsmb|smbus' || echo '(aucune ligne smbus)'"
 
-section "Chargement du module smb(4) si nécessaire"
-run_ssh "kldload smb 2>/dev/null; kldstat | grep -i smb || echo '(smb non listé — peut être compilé dans GENERIC)'"
+section "Chargement du module smb(4)"
+# Ne PAS masquer l'erreur de kldload : c'est elle qui explique l'absence
+# de /dev/smb0. ichsmb(4) attache le contrôleur et smbus(4) fournit le
+# bus, mais aucun des deux n'expose de device node — c'est smb(4), un
+# module distinct, qui crée /dev/smbN.
+run_ssh "kldload smb; echo \"kldload smb -> code \$?\""
+run_ssh "ls -l /boot/kernel/smb.ko 2>&1 || echo '(module absent du noyau installé)'"
+run_ssh "kldstat | grep -i smb || echo '(aucun module smb chargé)'"
 
 section "Device nodes disponibles"
 run_ssh "ls -l /dev/smb* 2>/dev/null || echo '(aucun /dev/smb* — smbus non exposé en espace utilisateur)'"

@@ -27,12 +27,32 @@ Deux incertitudes sont à lever au premier essai, dans cet ordre :
 
 == Prérequis d'exécution
 
-Le contrôleur SMBus du PCH Intel doit être attaché :
+[IMPORTANT]
+====
+*Charger `ichsmb(4)` ne suffit pas.* Trois modules distincts interviennent, et seul le dernier crée un device node :
+
+[cols="1,3"]
+!===
+!Module !Rôle
+
+!`ichsmb(4)`
+!Attache le contrôleur SMBus intégré au PCH Intel (`intpm(4)` sur d'autres plateformes).
+
+!`smbus(4)`
+!Fournit le bus SMBus lui-même.
+
+!`smb(4)`
+!*Expose `/dev/smbN` à l'espace utilisateur.* C'est celui qu'on oublie.
+!===
+
+Vérifié sur le banc QEMU le 21/07/2026 : avec `ichsmb.ko` et `smbus.ko` chargés et un contrôleur correctement attaché, `/dev/smb*` n'existait toujours pas. Symptôme trompeur — `dmesg` montre un bus parfaitement fonctionnel, mais rien ne le rend accessible depuis un programme.
+====
 
 [source,shell]
 ----
-kldload ichsmb              # ou intpm selon le chipset
-dmesg | grep -i smb         # vérifier l'attachement et le nom du device
+kldload smb                 # tire ichsmb et smbus par dépendance
+ls -l /dev/smb*             # le device node doit exister
+dmesg | grep -i smb         # vérifier l'attachement du contrôleur
 ----
 
 Le device node attendu est `/dev/smb0`, modifiable par l'option `-d`. Sur un NASync sous FreeBSD 14.3, un utilisateur a rapporté que le contrôleur apparaît comme « Intel Alder Lake SMBus controller » et non sous le nom `I801` connu de Linux — le nom exact reste donc à constater plutôt qu'à supposer.

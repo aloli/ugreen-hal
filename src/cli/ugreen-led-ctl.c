@@ -256,10 +256,29 @@ main(int argc, char *argv[])
 
 	fd = open(device_path, O_RDWR);
 	if (fd < 0) {
-		err(EX_OSFILE, "ouverture de %s\n"
-		    "Vérifier que ichsmb(4) ou intpm(4) est chargé "
-		    "(kldload ichsmb) et que le contrôleur est bien attaché "
-		    "(dmesg | grep -i smb)", device_path);
+		warn("ouverture de %s", device_path);
+		/*
+		 * Piège vérifié le 21/07/2026 sur le banc QEMU : charger
+		 * ichsmb(4) ne suffit pas. Trois modules distincts
+		 * interviennent, et seul le dernier crée un device node :
+		 *
+		 *   ichsmb(4) attache le contrôleur SMBus du PCH ;
+		 *   smbus(4)  fournit le bus lui-même ;
+		 *   smb(4)    expose /dev/smbN à l'espace utilisateur.
+		 *
+		 * `kldload smb` tire les deux autres par dépendance ; charger
+		 * ichsmb seul donne un bus fonctionnel mais invisible depuis
+		 * l'espace utilisateur, et donc exactement cette erreur.
+		 */
+		fprintf(stderr,
+		    "\nPistes, dans l'ordre :\n"
+		    "  kldload smb          charge smb(4), qui crée /dev/smbN\n"
+		    "                       (tire ichsmb et smbus par dépendance)\n"
+		    "  ls -l /dev/smb*      vérifier que le device node existe\n"
+		    "  dmesg | grep -i smb  vérifier que le contrôleur est attaché\n"
+		    "\nSur une plateforme non Intel, le pilote de contrôleur peut\n"
+		    "être intpm(4) plutôt que ichsmb(4).\n");
+		exit(EX_OSFILE);
 	}
 
 	rc = 0;
