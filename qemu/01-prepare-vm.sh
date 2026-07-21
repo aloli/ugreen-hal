@@ -40,6 +40,39 @@ if [[ "${FIRMWARE}" == "uefi" ]]; then
   fi
 fi
 
+if [[ "${FREEBSD_HAS_CLOUDINIT}" != "yes" ]]; then
+  cat <<EOF
+
+[prepare] Image ${FREEBSD_VERSION} : PAS de cloud-init.
+
+  Les images antérieures à FreeBSD 14 ne connaissent pas cloud-init : ni
+  clé SSH ni nom d'hôte ne seront injectés, et 20-build.sh ne pourra pas
+  se connecter tant que la VM n'aura pas été provisionnée à la main.
+
+  Procédure, une seule fois par disque :
+
+    1. ./10-run-console.sh        (console série, au lieu de 10-run.sh)
+    2. se connecter en root, sans mot de passe
+    3. dans la VM :
+         sysrc sshd_enable=YES
+         service sshd start
+         mkdir -p /root/.ssh && chmod 700 /root/.ssh
+         # coller la clé publique ci-dessous dans /root/.ssh/authorized_keys
+    4. adapter run_ssh dans lib/common.sh pour viser root plutôt que freebsd
+
+  Clé publique à autoriser :
+$(cat "${SSH_KEY}.pub" 2>/dev/null | sed 's/^/    /')
+
+  Pour la plupart des usages, préférer une image 14.x ou 15.x et compter
+  sur l'édition de liens statique : c'est nettement moins de manipulation
+  pour un risque comparable.
+
+EOF
+  echo "[prepare] terminé (sans ISO cloud-init)."
+  ls -lh "${BUILDER_DISK}"
+  exit 0
+fi
+
 echo "[prepare] construction de l'ISO cloud-init"
 
 # Zone de préparation dans run/ plutôt que dans le répertoire temporaire du

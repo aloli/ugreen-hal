@@ -44,25 +44,45 @@ BUILD_DIR="${QEMU_DIR}/build"
 # sur 15.0 pour exécuter sur 13.3 est le mauvais sens.
 #
 # L'édition de liens statique (défaut du Makefile de src/cli) absorbe
-# l'essentiel du risque. Pour lever le doute complètement, on aimerait
-# construire sur la version exacte de la cible — mais ce n'est possible que
-# pour l'une des deux :
+# l'essentiel du risque. Pour lever le doute complètement, construire sur
+# la version exacte de la cible :
 #
-#   XigmaNAS (FreeBSD 14.x) : correspondance exacte atteignable.
-#       FREEBSD_VERSION=14.4-RELEASE ./00-fetch-image.sh
+#   XigmaNAS (FreeBSD 14.x) : FREEBSD_VERSION=14.4-RELEASE
+#   zVault   (FreeBSD 13.3) : FREEBSD_VERSION=13.3-RELEASE
 #
-#   zVault (FreeBSD 13.3)   : IMPOSSIBLE. FreeBSD 13 est en fin de vie et
-#       ses images VM ont été retirées des miroirs officiels (vérifié le
-#       21/07/2026 : seules 14.3, 14.4, 15.0 et 15.1 restent publiées).
-#       Le binaire statique est donc la seule protection disponible pour
-#       cette cible — raison de plus pour ne pas désactiver NO_SHARED.
+# La 13.3 a bien disparu des miroirs courants — FreeBSD 13 est en fin de
+# vie — mais elle subsiste sur archive.freebsd.org, d'où sa récupération
+# automatique ci-dessous. Contrepartie : image sans cloud-init.
 #
-# Versions publiées au 21/07/2026 : 14.3-RELEASE, 14.4-RELEASE,
-# 15.0-RELEASE, 15.1-RELEASE. À revérifier sur
-# https://download.freebsd.org/releases/VM-IMAGES/
+# Versions sur les miroirs courants au 21/07/2026 : 14.3, 14.4, 15.0, 15.1.
+#   https://download.freebsd.org/releases/VM-IMAGES/
+# Versions archivées (9.3 à 15.1) :
+#   https://archive.freebsd.org/old-releases/VM-IMAGES/
 FREEBSD_VERSION="${FREEBSD_VERSION:-15.0-RELEASE}"
-FREEBSD_IMAGE_BASENAME="FreeBSD-${FREEBSD_VERSION}-amd64-BASIC-CLOUDINIT-ufs.qcow2"
-FREEBSD_IMAGE_URL="https://download.freebsd.org/releases/VM-IMAGES/${FREEBSD_VERSION}/amd64/Latest/${FREEBSD_IMAGE_BASENAME}.xz"
+
+# Deux familles d'images, selon l'âge de la version.
+#
+# À partir de FreeBSD 14, les miroirs publient une variante
+# BASIC-CLOUDINIT : cloud-init y injecte notre clé SSH et le nom d'hôte au
+# premier démarrage, et le banc est entièrement automatique.
+#
+# Avant, cette variante n'existe pas — seule l'image nue est publiée, et
+# les branches en fin de vie migrent vers archive.freebsd.org. C'est le cas
+# de la 13.3, base exacte de zVault : elle reste récupérable, mais son
+# provisionnement demande un passage manuel par la console série (voir
+# README.adoc, section « Images sans cloud-init »).
+case "${FREEBSD_VERSION}" in
+  9.*|10.*|11.*|12.*|13.*)
+    FREEBSD_HAS_CLOUDINIT="no"
+    FREEBSD_IMAGE_BASENAME="FreeBSD-${FREEBSD_VERSION}-amd64.qcow2"
+    FREEBSD_IMAGE_URL="https://archive.freebsd.org/old-releases/VM-IMAGES/${FREEBSD_VERSION}/amd64/Latest/${FREEBSD_IMAGE_BASENAME}.xz"
+    ;;
+  *)
+    FREEBSD_HAS_CLOUDINIT="yes"
+    FREEBSD_IMAGE_BASENAME="FreeBSD-${FREEBSD_VERSION}-amd64-BASIC-CLOUDINIT-ufs.qcow2"
+    FREEBSD_IMAGE_URL="https://download.freebsd.org/releases/VM-IMAGES/${FREEBSD_VERSION}/amd64/Latest/${FREEBSD_IMAGE_BASENAME}.xz"
+    ;;
+esac
 FREEBSD_IMAGE_XZ="${IMAGES_DIR}/${FREEBSD_IMAGE_BASENAME}.xz"
 FREEBSD_IMAGE_QCOW2="${IMAGES_DIR}/${FREEBSD_IMAGE_BASENAME}"
 

@@ -54,6 +54,8 @@ Les deux bancs peuvent tourner simultanément : celui-ci utilise le port SSH 222
 ./99-stop.sh           # arrête la VM
 ----
 
+`10-run-console.sh` remplace `10-run.sh` quand on veut la console série attachée au terminal — pour provisionner une image sans cloud-init, ou pour voir défiler un démarrage qui n'aboutit pas.
+
 Les scripts enchaînent les commandes dans la VM par SSH : rien à taper à la main dans le système invité.
 
 Le binaire produit atterrit dans `qemu/build/ugreen-led-ctl-freebsd-amd64`.
@@ -71,6 +73,62 @@ Se connecter à la VM à la main :
 ----
 ssh -i ssh/id_ed25519 -p 2224 freebsd@127.0.0.1
 ----
+
+== Choisir la version de FreeBSD
+
+La version est surchargeable, et ce n'est pas cosmétique : les cibles n'ont pas la même base. FreeBSD garantit la compatibilité *ascendante* — un binaire ancien tourne sur un système récent — mais jamais l'inverse.
+
+[cols="1,1,3", options="header"]
+|===
+|Cible |Version à viser |Disponibilité
+
+|zVault
+|13.3-RELEASE
+|Retirée des miroirs courants (FreeBSD 13 est en fin de vie), mais *présente sur `archive.freebsd.org`* — le banc l'y récupère automatiquement. Sans cloud-init, voir ci-dessous.
+
+|XigmaNAS
+|14.4-RELEASE
+|Miroirs courants, avec cloud-init. Aucune manipulation particulière.
+
+|Développement courant
+|15.0-RELEASE
+|Défaut. Combiné à l'édition de liens statique de `src/cli/`, convient à toutes les cibles dans la grande majorité des cas.
+|===
+
+[source,shell]
+----
+FREEBSD_VERSION=14.4-RELEASE ./00-fetch-image.sh
+FREEBSD_VERSION=14.4-RELEASE ./01-prepare-vm.sh
+FREEBSD_VERSION=14.4-RELEASE ./10-run.sh
+----
+
+=== Images sans cloud-init (FreeBSD 13 et antérieurs)
+
+Les images antérieures à FreeBSD 14 n'ont pas de variante `BASIC-CLOUDINIT` : cette convention est postérieure. L'ISO de seed reste donc sans effet, aucune clé SSH n'est injectée, et `20-build.sh` ne peut pas se connecter.
+
+Provisionnement manuel, une seule fois par disque :
+
+[source,shell]
+----
+FREEBSD_VERSION=13.3-RELEASE ./10-run-console.sh
+----
+
+Puis, dans la console série — connexion `root`, sans mot de passe :
+
+[source,shell]
+----
+sysrc sshd_enable=YES
+service sshd start
+mkdir -p /root/.ssh && chmod 700 /root/.ssh
+# coller le contenu de qemu/ssh/id_ed25519.pub dans authorized_keys
+----
+
+Il faut ensuite adapter `run_ssh` dans `lib/common.sh` pour viser `root` plutôt que `freebsd`. Pour quitter QEMU depuis la console série : *Ctrl-A* puis *X*.
+
+[TIP]
+====
+Cette manipulation ne se justifie que si l'on veut la correspondance exacte avec zVault. Pour le travail courant, une image 14.x ou 15.x combinée au binaire statique demande nettement moins de gestes pour un risque comparable — le statique supprimant la dépendance aux versions de symboles de la libc, qui est le mode d'échec réel.
+====
 
 == Remise à zéro
 
