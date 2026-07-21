@@ -268,6 +268,10 @@ module PrepareUsb
       raise Aborted.new("Aucune URL fournie.")
     end
 
+    # Mémorisée pour en déduire ensuite où chercher l'empreinte, y compris
+    # lorsque l'URL a été saisie à la main.
+    @@last_download_url = url
+
     directory = File.dirname(destination)
     Dir.mkdir_p(directory) unless Dir.exists?(directory)
 
@@ -322,9 +326,14 @@ module PrepareUsb
     puts "  déroutante, et coûteuse à diagnostiquer sur un NAS sans écran."
     puts
 
+    # Sans téléchargement dans cette session, on peut encore chercher
+    # l'empreinte à l'emplacement connu de l'image.
+    @@last_download_url ||= image.url
+
     expected = fetch_published_sha256(image)
 
     if expected
+      puts
       puts "  Empreinte publiée récupérée automatiquement :"
       puts "    #{expected}"
     else
@@ -353,40 +362,116 @@ module PrepareUsb
     end
   end
 
+  # URL réellement utilisée pour le dernier téléchargement, y compris celle
+  # saisie à la main. Sert à deviner où trouver l'empreinte : les projets
+  # publient presque toujours le fichier de somme à côté de l'image.
+  @@last_download_url : String? = nil
+
+  # Construit la liste des emplacements où chercher l'empreinte, du plus
+  # spécifique au plus générique. Aucun n'est garanti : on les essaie dans
+  # l'ordre et on s'arrête au premier qui répond.
+  def checksum_candidates(image : Image) : Array(String)
+    candidates = [] of String
+
+    if declared = image.sha256_url
+      candidates << declared
+    end
+
+    source = @@last_download_url
+    if source
+      # SourceForge suffixe ses URL de « /download » : le fichier de somme
+      # se trouve donc à « …/nom.iso.sha256/download », et non après.
+      base, suffix = source.ends_with?("/download") ? {source[0...-9], "/download"} : {source, ""}
+
+      candidates << "#{base}.sha256#{suffix}"
+      candidates << "#{base}.sha256sum#{suffix}"
+      candidates << "#{base}.CHECKSUM.SHA256#{suffix}"
+
+      # FreeBSD et plusieurs autres publient un fichier unique récapitulant
+      # tout le répertoire, plutôt qu'un fichier par image.
+      if slash = base.rindex('/')
+        directory = base[0, slash]
+        candidates << "#{directory}/CHECKSUM.SHA256#{suffix}"
+        candidates << "#{directory}/SHA256SUMS#{suffix}"
+      end
+    end
+
+    candidates.uniq
+  end
+
   # Récupère l'empreinte publiée par le projet, plutôt que de la faire
-  # recopier à la main. Renvoie nil si aucune URL n'est connue ou si la
-  # récupération échoue — auquel cas la saisie manuelle reste possible.
-  #
-  # Le fichier publié contient généralement « <empreinte>  <nom de fichier> » ;
-  # on extrait donc la première suite de 64 caractères hexadécimaux plutôt
-  # que de supposer un format exact.
+  # recopier à la main. Renvoie nil si aucun emplacement ne répond — auquel
+  # cas la saisie manuelle reste possible.
   def fetch_published_sha256(image : Image) : String?
-    url = image.sha256_url
-    return nil unless url
+    candidates = checksum_candidates(image)
+    return nil if candidates.empty?
 
-    print "  Récupération de l'empreinte publiée... "
-    STDOUT.flush
+    # Le nom à rechercher doit venir de l'URL réellement employée, pas du
+    # nom prévu au programme : une URL saisie à la main peut désigner une
+    # autre version, et le récapitulatif de répertoire ne serait alors
+    # jamais reconnu.
+    expected_name = expected_filename(image)
 
-    output = IO::Memory.new
-    status = Process.run("curl", [
-      "--location", "--fail", "--silent",
-      "--connect-timeout", "15",
-      url,
-    ], output: output, error: Process::Redirect::Close)
+    candidates.each do |url|
+      print "  Recherche de l'empreinte : #{shorten(url)}... "
+      STDOUT.flush
 
-    unless status.success?
-      puts "échec."
-      return nil
+      output = IO::Memory.new
+      status = Process.run("curl", [
+        "--location", "--fail", "--silent",
+        "--connect-timeout", "15",
+        url,
+      ], output: output, error: Process::Redirect::Close)
+
+      unless status.success?
+        puts "absent."
+        next
+      end
+
+      digest = extract_sha256(output.to_s, expected_name)
+      if digest
+        puts "trouvée."
+        return digest
+      end
+
+      puts "illisible."
     end
 
-    match = output.to_s.downcase.match(/\b[0-9a-f]{64}\b/)
-    if match
-      puts "obtenue."
-      match[0]
-    else
-      puts "réponse illisible."
-      nil
+    nil
+  end
+
+  # Extrait l'empreinte d'un fichier de sommes. Deux formats circulent :
+  # une ligne unique « <empreinte>  <fichier> », ou un récapitulatif de
+  # répertoire listant des dizaines de fichiers. Dans le second cas, prendre
+  # la première empreinte venue donnerait celle d'une autre image — d'où la
+  # recherche prioritaire de la ligne portant le nom attendu.
+  def extract_sha256(content : String, expected_name : String) : String?
+    lowered = content.downcase
+
+    lowered.each_line do |line|
+      next unless line.includes?(expected_name.downcase)
+      if match = line.match(/\b[0-9a-f]{64}\b/)
+        return match[0]
+      end
     end
+
+    # Fichier ne mentionnant qu'une empreinte, sans nom de fichier : sans
+    # ambiguïté possible, on l'accepte.
+    digests = lowered.scan(/\b[0-9a-f]{64}\b/).map(&.[](0))
+    digests.size == 1 ? digests.first : nil
+  end
+
+  def expected_filename(image : Image) : String
+    source = @@last_download_url
+    return File.basename(image.hint) unless source
+
+    base = source.ends_with?("/download") ? source[0...-9] : source
+    name = File.basename(base)
+    name.empty? ? File.basename(image.hint) : name
+  end
+
+  def shorten(url : String) : String
+    url.size <= 60 ? url : "#{url[0, 30]}…#{url[-28..]}"
   end
 
   def sha256_of(path : String) : String
