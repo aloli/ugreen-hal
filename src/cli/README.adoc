@@ -80,13 +80,18 @@ FreeBSD garantit la compatibilité *ascendante* — un binaire ancien tourne sur
 Deux protections, dans cet ordre :
 
 . *Édition de liens statique*, activée par défaut dans le `Makefile` (`NO_SHARED=yes`). Le programme n'utilisant que la libc, le coût se limite à quelques centaines de kilo-octets — contre une classe entière de pannes évitées au moment précis où l'on cherche à savoir si une LED s'allume.
-. *Construire sur la version de la cible*, pour lever le doute complètement :
+. *Construire sur la version de la cible* — possible pour une seule des deux :
 +
-[source,shell]
-----
-FREEBSD_VERSION=13.5-RELEASE ./qemu/00-fetch-image.sh
-FREEBSD_VERSION=13.5-RELEASE ./qemu/01-prepare-vm.sh
-----
+[cols="1,3"]
+!===
+!Cible !Correspondance atteignable
+
+!XigmaNAS (FreeBSD 14.x)
+!Oui : `FREEBSD_VERSION=14.4-RELEASE ./qemu/00-fetch-image.sh`
+
+!zVault (FreeBSD 13.3)
+!*Non.* FreeBSD 13 est en fin de vie et ses images VM ont été retirées des miroirs officiels — vérifié le 21/07/2026, seules 14.3, 14.4, 15.0 et 15.1 restent publiées. Le binaire statique est la seule protection disponible pour cette cible.
+!===
 ====
 
 == Prérequis d'exécution

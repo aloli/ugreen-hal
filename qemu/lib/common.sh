@@ -44,11 +44,22 @@ BUILD_DIR="${QEMU_DIR}/build"
 # sur 15.0 pour exécuter sur 13.3 est le mauvais sens.
 #
 # L'édition de liens statique (défaut du Makefile de src/cli) absorbe
-# l'essentiel du risque. Pour lever le doute complètement, construire sur
-# la version de la cible :
+# l'essentiel du risque. Pour lever le doute complètement, on aimerait
+# construire sur la version exacte de la cible — mais ce n'est possible que
+# pour l'une des deux :
 #
-#   FREEBSD_VERSION=13.5-RELEASE ./00-fetch-image.sh
-#   FREEBSD_VERSION=13.5-RELEASE ./01-prepare-vm.sh   # etc.
+#   XigmaNAS (FreeBSD 14.x) : correspondance exacte atteignable.
+#       FREEBSD_VERSION=14.4-RELEASE ./00-fetch-image.sh
+#
+#   zVault (FreeBSD 13.3)   : IMPOSSIBLE. FreeBSD 13 est en fin de vie et
+#       ses images VM ont été retirées des miroirs officiels (vérifié le
+#       21/07/2026 : seules 14.3, 14.4, 15.0 et 15.1 restent publiées).
+#       Le binaire statique est donc la seule protection disponible pour
+#       cette cible — raison de plus pour ne pas désactiver NO_SHARED.
+#
+# Versions publiées au 21/07/2026 : 14.3-RELEASE, 14.4-RELEASE,
+# 15.0-RELEASE, 15.1-RELEASE. À revérifier sur
+# https://download.freebsd.org/releases/VM-IMAGES/
 FREEBSD_VERSION="${FREEBSD_VERSION:-15.0-RELEASE}"
 FREEBSD_IMAGE_BASENAME="FreeBSD-${FREEBSD_VERSION}-amd64-BASIC-CLOUDINIT-ufs.qcow2"
 FREEBSD_IMAGE_URL="https://download.freebsd.org/releases/VM-IMAGES/${FREEBSD_VERSION}/amd64/Latest/${FREEBSD_IMAGE_BASENAME}.xz"
