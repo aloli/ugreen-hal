@@ -40,7 +40,11 @@ section "Chargement du module smb(4)"
 # de /dev/smb0. ichsmb(4) attache le contrôleur et smbus(4) fournit le
 # bus, mais aucun des deux n'expose de device node — c'est smb(4), un
 # module distinct, qui crée /dev/smbN.
-run_ssh "kldload smb; echo \"kldload smb -> code \$?\""
+#
+# sudo est indispensable : sans lui, kldload échoue sur « Operation not
+# permitted », message qui évoque une restriction de sécurité du noyau
+# (securelevel, MAC) alors qu'il ne s'agit que d'un manque de privilèges.
+run_ssh "sudo kldload smb; echo \"kldload smb -> code \$?\""
 run_ssh "ls -l /boot/kernel/smb.ko 2>&1 || echo '(module absent du noyau installé)'"
 run_ssh "kldstat | grep -i smb || echo '(aucun module smb chargé)'"
 

@@ -50,9 +50,21 @@ Vérifié sur le banc QEMU le 21/07/2026 : avec `ichsmb.ko` et `smbus.ko` charg�
 
 [source,shell]
 ----
-kldload smb                 # tire ichsmb et smbus par dépendance
+sudo kldload smb            # tire ichsmb et smbus par dépendance
 ls -l /dev/smb*             # le device node doit exister
 dmesg | grep -i smb         # vérifier l'attachement du contrôleur
 ----
+
+[TIP]
+====
+Sans privilèges, `kldload` échoue sur `Operation not permitted` — message qui évoque une restriction de sécurité du noyau (securelevel, MAC) alors qu'il ne s'agit que d'un `sudo` manquant. Constaté sur le banc le 21/07/2026.
+
+Pour rendre le chargement permanent, plutôt que de le refaire à chaque démarrage :
+
+[source,shell]
+----
+echo 'smb_load="YES"' >> /boot/loader.conf
+----
+====
 
 Le device node attendu est `/dev/smb0`, modifiable par l'option `-d`. Sur un NASync sous FreeBSD 14.3, un utilisateur a rapporté que le contrôleur apparaît comme « Intel Alder Lake SMBus controller » et non sous le nom `I801` connu de Linux — le nom exact reste donc à constater plutôt qu'à supposer.
