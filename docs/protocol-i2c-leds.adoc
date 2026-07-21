@@ -166,6 +166,46 @@ Si le microcontrôleur UGREEN attend la première forme, cet octet supplémentai
 *Consigne de diagnostic* : ne pas conclure à une erreur d'adresse ou de somme de contrôle avant d'avoir écarté cette piste. Les deux hypothèses produisent le même symptôme — aucune réaction de la LED.
 ====
 
+== Grille de lecture des erreurs, pour l'essai sur matériel (sprint 3.3)
+
+Établie le 21/07/2026 sur le banc QEMU, dont la machine `q35` émule un contrôleur SMBus ICH9 auquel `ichsmb(4)` s'attache. Le programme y a été exercé contre un bus réel où aucun périphérique ne répond à l'adresse visée.
+
+*Ce que le banc a déjà démontré* : le noyau FreeBSD accepte la forme de nos ioctls. `SMB_BREAD` a renvoyé `ENXIO` (« Device not configured »), erreur émise par la couche SMBus *après* avoir émis la transaction sur le bus, faute d'acquittement. Une `struct smbcmd` mal remplie aurait été rejetée en amont avec `EINVAL`, sans jamais atteindre le bus. La structure et les ioctls sont donc validés par l'implémentation elle-même, et non plus seulement par lecture de l'en-tête.
+
+Sur le DXP2800, le code d'erreur discriminera les hypothèses :
+
+[cols="1,2,3", options="header"]
+|===
+|Erreur |Signification |Conclusion à en tirer
+
+|`ENXIO` +
+« Device not configured »
+|La transaction a été émise, personne n'a acquitté à cette adresse.
+|*L'adresse est fausse, ou le contrôleur est sur un autre bus.* Vérifier d'abord la conversion 7 bits → 8 bits (`0x74`), puis l'existence d'un second `/dev/smbN`. C'est aussi l'erreur obtenue en VM, où aucun matériel ne répond : elle ne dit rien du protocole.
+
+|`EINVAL` +
+« Invalid argument »
+|Le noyau a refusé la requête avant de toucher au bus.
+|*La requête est malformée* : taille de bloc hors limites, champ incohérent. Rien à voir avec le contrôleur UGREEN — c'est notre code qu'il faut corriger.
+
+|`EBUSY` / `ETIMEDOUT`
+|Le bus est occupé ou n'a pas répondu à temps.
+|Un autre pilote se dispute le bus, ou le contrôleur est dans un état instable. Vérifier qu'aucun pilote de supervision matérielle ne le sollicite simultanément.
+
+|*Succès, mais la LED ne bouge pas*
+|La trame est passée, le microcontrôleur ne l'a pas comprise.
+|*C'est le scénario de l'octet de longueur* décrit plus haut. Basculer sur `iic(4)`/`I2CRDWR` pour émettre la trame exacte, sans octet de comptage.
+
+|*Succès, et la LED réagit*
+|Le protocole est validé.
+|Passer à l'étape 3.5 : étendre à l'ensemble des LED, puis à la lecture d'état.
+|===
+
+[IMPORTANT]
+====
+La distinction `ENXIO` / `EINVAL` est le principal apport de cette grille. Les deux se lisent comme « ça n'a pas marché », mais elles désignent des causes opposées : l'une accuse l'adresse ou le câblage, l'autre accuse notre code. Sans cette lecture, le réflexe naturel devant un échec est de suspecter le protocole — c'est-à-dire l'hypothèse la plus coûteuse à explorer.
+====
+
 == Squelette d'utilitaire FreeBSD (à valider au sprint 3)
 
 Le squelette ci-dessous remplace la version précédente (basée sur `iic(4)`) par une approche basée sur `smbus(4)`, cohérente avec la découverte ci-dessus. Il reste à valider sur le matériel réel — en particulier le chemin exact du device node, qui peut être `/dev/smb0` ou un autre index selon l'énumération des bus SMBus/I2C du DXP2800.
