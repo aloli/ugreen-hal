@@ -20,6 +20,20 @@ Banc de compilation FreeBSD local, sur la machine de développement. Livrable de
 |Remplacer le NAS. Aucune émulation ne reproduit une carte mère UGREEN.
 |===
 
+=== Bonus constaté le 21/07/2026 : le SMBus est émulé
+
+La machine `q35` de QEMU expose un contrôleur SMBus ICH9, auquel `ichsmb(4)` s'attache — le pilote même que vise le code sur le DXP2800 :
+
+[source]
+----
+ichsmb0: <Intel 82801I (ICH9) SMBus controller> port 0x6100-0x613f irq 16 at device 31.3 on pci0
+smbus0: <System Management Bus> on ichsmb0
+----
+
+Le banc permet donc davantage qu'une simple compilation : toute la *plomberie* devient vérifiable — ouverture de `/dev/smb0`, acceptation des ioctls par le noyau, remontée propre des erreurs. C'est l'objet de `30-smoke-test.sh`.
+
+La seule inconnue qui subsiste après ce banc est le dialogue avec le microcontrôleur UGREEN lui-même : aucun périphérique ne répond à l'adresse `0x74` dans une VM. Dans ce test, *l'échec est le résultat attendu* — ce qu'on éprouve, c'est la qualité du message d'erreur, pas l'allumage d'une LED.
+
 == Pourquoi amd64 plutôt qu'aarch64
 
 Le banc voisin (`prod-crystal/qemu`, projet clevis-zfs) utilise une image *aarch64*, qui bénéficie de l'accélération matérielle HVF sur Mac Apple Silicon et démarre en quelques secondes.
@@ -36,8 +50,11 @@ Les deux bancs peuvent tourner simultanément : celui-ci utilise le port SSH 222
 ./01-prepare-vm.sh     # disque + ISO cloud-init
 ./10-run.sh            # démarre la VM en tâche de fond
 ./20-build.sh          # compile src/cli/ et rapatrie le binaire
+./30-smoke-test.sh     # exerce le binaire dans la VM (SMBus, erreurs)
 ./99-stop.sh           # arrête la VM
 ----
+
+Les scripts enchaînent les commandes dans la VM par SSH : rien à taper à la main dans le système invité.
 
 Le binaire produit atterrit dans `qemu/build/ugreen-led-ctl-freebsd-amd64`.
 
