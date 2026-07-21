@@ -41,7 +41,8 @@ module PrepareUsb
     role : String,
     hint : String,
     page : String,
-    url : String?
+    url : String?,
+    sha256_url : String?
 
   IMAGES = [
     Image.new(
@@ -49,21 +50,24 @@ module PrepareUsb
       role: "live Linux — clone de l'eMMC du NAS (voir backup-nas.sh)",
       hint: "systemrescue-13.01-amd64.iso",
       page: "https://www.system-rescue.org/Download/",
-      url: "https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/13.01/systemrescue-13.01-amd64.iso/download"
+      url: "https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/13.01/systemrescue-13.01-amd64.iso/download",
+      sha256_url: "https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/13.01/systemrescue-13.01-amd64.iso.sha256/download"
     ),
     Image.new(
       name: "zVault",
       role: "installeur — première cible d'intégration (sprints 2 à 5)",
       hint: "zVault-13.3-MASTER-202505042329-ca844f8808.iso",
       page: "https://github.com/zvaultio/Community/releases",
-      url: nil
+      url: nil,
+      sha256_url: nil
     ),
     Image.new(
       name: "XigmaNAS",
       role: "installeur — seconde cible d'intégration (sprint 5bis)",
       hint: "XigmaNAS-x64-LiveCD-14.3.0.5.iso",
       page: "https://sourceforge.net/projects/xigmanas/files/XigmaNAS-14.3.0.5/",
-      url: nil
+      url: nil,
+      sha256_url: nil
     ),
   ]
 
@@ -311,18 +315,27 @@ module PrepareUsb
     end
   end
 
-  def verify_checksum(path : String)
+  def verify_checksum(image : Image, path : String)
     title "Vérification de l'empreinte SHA-256"
 
     puts "  Une ISO tronquée produit une clé qui démarre à moitié — panne"
     puts "  déroutante, et coûteuse à diagnostiquer sur un NAS sans écran."
-    puts "  L'empreinte est publiée à côté de l'image sur le site officiel."
     puts
 
-    expected = ask("Empreinte attendue (entrée vide pour passer) :").downcase
-    if expected.empty?
-      warn "Vérification passée — à vos risques."
-      return
+    expected = fetch_published_sha256(image)
+
+    if expected
+      puts "  Empreinte publiée récupérée automatiquement :"
+      puts "    #{expected}"
+    else
+      puts "  L'empreinte est publiée à côté de l'image sur le site officiel :"
+      puts "    #{image.page}"
+      puts
+      expected = ask("Empreinte attendue (entrée vide pour passer) :").downcase
+      if expected.empty?
+        warn "Vérification passée — à vos risques."
+        return
+      end
     end
 
     print "  Calcul en cours (peut prendre une minute)... "
@@ -337,6 +350,42 @@ module PrepareUsb
       puts "  Attendue : #{expected}"
       puts "  Obtenue  : #{actual}"
       raise Aborted.new("Les empreintes diffèrent : l'image est corrompue ou incomplète.")
+    end
+  end
+
+  # Récupère l'empreinte publiée par le projet, plutôt que de la faire
+  # recopier à la main. Renvoie nil si aucune URL n'est connue ou si la
+  # récupération échoue — auquel cas la saisie manuelle reste possible.
+  #
+  # Le fichier publié contient généralement « <empreinte>  <nom de fichier> » ;
+  # on extrait donc la première suite de 64 caractères hexadécimaux plutôt
+  # que de supposer un format exact.
+  def fetch_published_sha256(image : Image) : String?
+    url = image.sha256_url
+    return nil unless url
+
+    print "  Récupération de l'empreinte publiée... "
+    STDOUT.flush
+
+    output = IO::Memory.new
+    status = Process.run("curl", [
+      "--location", "--fail", "--silent",
+      "--connect-timeout", "15",
+      url,
+    ], output: output, error: Process::Redirect::Close)
+
+    unless status.success?
+      puts "échec."
+      return nil
+    end
+
+    match = output.to_s.downcase.match(/\b[0-9a-f]{64}\b/)
+    if match
+      puts "obtenue."
+      match[0]
+    else
+      puts "réponse illisible."
+      nil
     end
   end
 
@@ -501,7 +550,7 @@ module PrepareUsb
 
     image = choose_image
     iso = locate_iso(image)
-    verify_checksum(iso)
+    verify_checksum(image, iso)
     disk = choose_disk
     confirm(image, iso, disk)
     write(iso, disk)

@@ -57,7 +57,24 @@ VM_CPUS="4"
 VM_MEM="2048"
 
 QEMU_BIN="$(command -v qemu-system-x86_64 || true)"
-EDK2_FIRMWARE="/opt/homebrew/share/qemu/edk2-x86_64-code.fd"
+
+# Firmware UEFI, en deux volets — c'est la source d'erreur classique sur
+# x86 : edk2-x86_64-code.fd est une image *pflash*, pas une ROM chargeable
+# par -bios. Tenter `-bios edk2-x86_64-code.fd` échoue sur
+# « could not load PC BIOS ». Il faut deux périphériques pflash : le code
+# en lecture seule, et un magasin de variables inscriptible, propre à la VM.
+QEMU_FIRMWARE_DIR="/opt/homebrew/share/qemu"
+EDK2_CODE="${QEMU_FIRMWARE_DIR}/edk2-x86_64-code.fd"
+EDK2_VARS_TEMPLATE="${QEMU_FIRMWARE_DIR}/edk2-i386-vars.fd"
+BUILDER_VARS="${RUN_DIR}/builder-vars.fd"
+
+# Repli possible : FIRMWARE=bios ./10-run.sh démarre en BIOS hérité
+# (SeaBIOS). Les images VM de FreeBSD sont hybrides — partition
+# `freebsd-boot` pour l'amorçage BIOS et partition EFI — donc les deux
+# chemins fonctionnent. L'UEFI reste le choix par défaut : c'est ce
+# qu'embarque le DXP2800 (BIOS AMI), donc l'environnement le plus proche
+# de la cible réelle.
+FIRMWARE="${FIRMWARE:-uefi}"
 
 SSH_KEY="${SSH_DIR}/id_ed25519"
 
@@ -71,10 +88,19 @@ require_qemu() {
     echo "         Installation : brew install qemu" >&2
     exit 1
   fi
-  if [[ ! -f "${EDK2_FIRMWARE}" ]]; then
-    echo "[erreur] firmware EDK2 introuvable : ${EDK2_FIRMWARE}" >&2
-    echo "         Ajuster EDK2_FIRMWARE dans lib/common.sh." >&2
-    exit 1
+  if [[ "${FIRMWARE}" == "uefi" ]]; then
+    if [[ ! -f "${EDK2_CODE}" ]]; then
+      echo "[erreur] firmware EDK2 introuvable : ${EDK2_CODE}" >&2
+      echo "         Ajuster QEMU_FIRMWARE_DIR dans lib/common.sh," >&2
+      echo "         ou démarrer en BIOS hérité : FIRMWARE=bios ./10-run.sh" >&2
+      exit 1
+    fi
+    if [[ ! -f "${EDK2_VARS_TEMPLATE}" ]]; then
+      echo "[erreur] magasin de variables EDK2 introuvable :" >&2
+      echo "         ${EDK2_VARS_TEMPLATE}" >&2
+      echo "         Repli : FIRMWARE=bios ./10-run.sh" >&2
+      exit 1
+    fi
   fi
 }
 

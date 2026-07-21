@@ -27,6 +27,19 @@ else
   qemu-img resize "${BUILDER_DISK}" 8G >/dev/null
 fi
 
+# Le magasin de variables UEFI doit être inscriptible et propre à la VM :
+# on part d'une copie du gabarit fourni par QEMU plutôt que de laisser le
+# firmware écrire dans le fichier partagé de l'installation Homebrew.
+if [[ "${FIRMWARE}" == "uefi" ]]; then
+  if [[ -f "${BUILDER_VARS}" ]]; then
+    echo "[prepare] magasin de variables UEFI déjà présent, conservé"
+  else
+    echo "[prepare] copie du magasin de variables UEFI"
+    cp "${EDK2_VARS_TEMPLATE}" "${BUILDER_VARS}"
+    chmod u+w "${BUILDER_VARS}"
+  fi
+fi
+
 echo "[prepare] construction de l'ISO cloud-init"
 
 # Zone de préparation dans run/ plutôt que dans le répertoire temporaire du
