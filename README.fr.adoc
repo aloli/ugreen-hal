@@ -59,6 +59,9 @@ La documentation technique détaillée (`docs/`) est rédigée en français pour
 |`docs/prise-de-contact.adoc`
 |Messages de prise de contact avec les communautés zVault et XigmaNAS, prêts à publier, avec leur état d'envoi.
 
+|`docs/essai-terrain.adoc`
+|Fiche à dérouler devant le NAS : relevés à faire, commandes à lancer, et grille de lecture des erreurs pour le premier essai du pilote LED.
+
 |`src/cli/`
 |Cœur du HAL : utilitaires en espace utilisateur pour FreeBSD, en C, ne connaissant que `smbus(4)`/`gpio(4)` — jamais zVault ni XigmaNAS. Actuellement `ugreen-led-ctl`.
 

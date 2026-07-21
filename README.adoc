@@ -59,6 +59,9 @@ The detailed technical documentation under `docs/` is currently written in Frenc
 |`docs/prise-de-contact.adoc`
 |Ready-to-publish outreach messages for the zVault and XigmaNAS communities, with their delivery status.
 
+|`docs/essai-terrain.adoc`
+|Field checklist to work through in front of the NAS: readings to take, commands to run, and an error-reading grid for the first LED driver attempt.
+
 |`src/cli/`
 |The HAL core: FreeBSD userland utilities in C, knowing only `smbus(4)`/`gpio(4)` — never zVault or XigmaNAS. Currently `ugreen-led-ctl`.
 

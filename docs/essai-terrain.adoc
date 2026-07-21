@@ -1,0 +1,149 @@
+= Fiche d'essai sur matériel — DXP2800
+:toc:
+:sectnums:
+
+Fiche à dérouler devant le NAS, et à remplir au fur et à mesure. Chaque section indique ce qu'on cherche à établir, la commande, et ce qu'il faut noter — y compris en cas d'échec, car un échec précisément décrit vaut mieux qu'un succès vague.
+
+[NOTE]
+====
+*Rien de ce qui suit n'écrit sur le stockage interne.* Le NAS démarre sur une clé USB, l'eMMC reste intacte. Le clone de sauvegarde (`scripts/backup-nas.sh`) ne conditionne que la phase 4, et n'est pas un prérequis de cette fiche.
+====
+
+== Étape 0 — Avant d'allumer
+
+[cols="1,4"]
+|===
+|✓ |Point
+
+|☐
+|Écran HDMI et clavier USB branchés sur le NAS.
+
+|☐
+|Clé SystemRescue et clé zVault à portée, étiquetées — elles se ressemblent une fois branchées.
+
+|☐
+|Le binaire `ugreen-led-ctl` est sur une *troisième* clé, en FAT32 (voir `src/cli/README.adoc`). Ni la clé zVault ni la clé SystemRescue ne peuvent le porter : leurs systèmes de fichiers sont en lecture seule.
+
+|☐
+|Vérifier que le binaire est bien statique : `file ugreen-led-ctl` doit annoncer `statically linked`. Sinon il échouera sur zVault, dont la base FreeBSD est plus ancienne que celle du banc.
+|===
+
+== Étape 1 — BIOS
+
+*Ce qu'on établit* : la touche d'accès, et l'état du watchdog.
+
+[cols="1,4"]
+|===
+|✓ |Point
+
+|☐
+|Touche d'accès au BIOS. Annoncée : *Ctrl-F12*, d'après des retours d'utilisateurs, jamais vérifiée sur cet exemplaire. Candidats de repli : Suppr, F2, F7, F11, Échap. +
+*À noter* : la touche qui a réellement fonctionné.
+
+|☐
+|*Désactiver le watchdog.* Le chip ITE IT8613 redémarre la machine au bout de 20 minutes si aucun système ne le nourrit. Sous UGOS un service s'en charge ; sous FreeBSD, personne. Sans cette désactivation, des redémarrages spontanés viendront brouiller tous les essais suivants — et ressembleront à s'y méprendre à une instabilité matérielle. +
+*À noter* : l'intitulé exact de l'option et son emplacement dans les menus.
+
+|☐
+|Régler l'ordre de démarrage sur la clé USB.
+|===
+
+== Étape 2 — SystemRescue : relevés, sans risque
+
+*Ce qu'on établit* : la topologie du stockage interne, en confirmation des relevés faits par photo.
+
+[source,shell]
+----
+lsblk -o NAME,SIZE,TYPE,MOUNTPOINT,LABEL
+----
+
+Attendu d'après `hardware-notes.adoc` : `mmcblk0`, 29,2 Gio, partitions `p1` à `p8` plus `p128`, dont `p6` étiquetée `UGREEN-SERVICE` et `p7` `USER-DATA`.
+
+[cols="1,4"]
+|===
+|✓ |Point
+
+|☐
+|Sortie de `lsblk` — *à retranscrire intégralement*, c'est la confirmation directe des relevés photographiques.
+
+|☐
+|`lspci -nn \| grep -i smbus` : identifiant PCI exact du contrôleur SMBus. C'est lui qui déterminera si `ichsmb(4)` peut s'y attacher sous FreeBSD.
+
+|☐
+|`sudo i2cdetect -l` puis `sudo i2cdetect -y <bus>` sur le bus SMBus : *le contrôleur LED doit apparaître à l'adresse `0x3a`* (notation Linux, 7 bits). C'est la vérification la plus utile de cette étape — elle confirme l'adresse indépendamment de FreeBSD.
+|===
+
+== Étape 3 — zVault : démarrage externe
+
+*Ce qu'on établit* : que le socle FreeBSD fonctionne sur ce matériel.
+
+[cols="1,4"]
+|===
+|✓ |Point
+
+|☐
+|Le menu de démarrage propose bien la clé, et zVault démarre. +
+*À noter* : toute erreur affichée au passage, même sans conséquence apparente.
+
+|☐
+|`ifconfig` : l'interface `igc0` est-elle présente ? Le pilote est mainline et mature, elle devrait l'être.
+
+|☐
+|`dmesg \| grep -i smb` : le contrôleur SMBus est-il attaché, et sous quel nom ? Un utilisateur a rapporté « Intel Alder Lake SMBus controller » plutôt que le `I801` connu de Linux. +
+*À noter* : la ligne exacte.
+
+|☐
+|`geom disk list` : les baies SATA sont-elles vues ? (Sans disque installé, la réponse sera vide — c'est normal.)
+|===
+
+== Étape 4 — Le moment de vérité
+
+*Ce qu'on établit* : si le protocole SMBus rétro-documenté fonctionne réellement.
+
+[source,shell]
+----
+kldload smb                 # indispensable : c'est smb(4) qui crée /dev/smbN
+ls -l /dev/smb*             # le device node doit exister
+./ugreen-led-ctl status power
+----
+
+[IMPORTANT]
+====
+*Ne pas conclure trop vite.* Quatre causes distinctes produisent le même symptôme apparent — « ça ne marche pas ». Le code d'erreur les sépare. Voir la grille complète dans `protocol-i2c-leds.adoc` ; en résumé :
+
+[cols="1,3"]
+!===
+!Ce qui s'affiche !Ce que ça désigne
+
+!`ENXIO` / « Device not configured »
+!Personne n'acquitte à cette adresse. *L'adresse ou le bus*, pas le code. Essayer un autre `/dev/smbN` s'il en existe plusieurs.
+
+!`EINVAL` / « Invalid argument »
+!Le noyau a refusé la requête avant le bus. *Notre code* — le contrôleur est hors de cause.
+
+!Aucune erreur, valeurs cohérentes
+!*Le protocole fonctionne.* Passer aux commandes d'écriture.
+
+!Aucune erreur, valeurs aberrantes
+!La trame passe mais n'est pas comprise. *C'est l'octet de longueur du bloc SMBus* — basculer sur `iic(4)`/`I2CRDWR`.
+!===
+====
+
+[cols="1,4"]
+|===
+|✓ |Point
+
+|☐
+|Sortie exacte de `ugreen-led-ctl status power`, erreur comprise. +
+*À retranscrire mot pour mot* : c'est la donnée la plus précieuse de toute la séance.
+
+|☐
+|Si la lecture réussit : `./ugreen-led-ctl off power`, puis `on`. *Observer la façade.* La LED a-t-elle réagi ?
+
+|☐
+|Si elle réagit : `./ugreen-led-ctl color power 255 0 0`. La couleur change-t-elle réellement en rouge ?
+|===
+
+== Après la séance
+
+Reporter les observations dans `docs/journal.adoc` avec la date, et mettre à jour `docs/hardware-notes.adoc` pour tout relevé nouveau. Les affirmations non vérifiées de ces documents — touche BIOS, nom d'attachement du contrôleur, adresse `0x74` — doivent passer du statut « annoncé » à « confirmé » ou « infirmé », jamais rester dans l'entre-deux.
