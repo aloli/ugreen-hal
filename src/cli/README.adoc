@@ -25,6 +25,70 @@ Deux incertitudes sont à lever au premier essai, dans cet ordre :
 . *La forme de la trame est-elle la bonne ?* Le code Linux de référence émet une transaction I2C brute, sans octet de longueur, là où `SMB_BWRITE` insère un octet de comptage conformément au standard SMBus. Si le microcontrôleur attend la première forme, la trame sera décalée et la commande rejetée — vraisemblablement en silence. Le repli documenté est `iic(4)` et son ioctl `I2CRDWR`, qui permet d'émettre la trame exacte. Ne pas conclure à une erreur d'adresse ou de somme de contrôle avant d'avoir écarté cette piste.
 ====
 
+== Transférer le binaire sur le NAS
+
+[WARNING]
+====
+*Ne pas essayer de copier le programme sur la clé zVault.* Elle est écrite par `dd` depuis une image ISO : son système de fichiers est un ISO9660 en lecture seule, rien ne peut y être ajouté.
+====
+
+=== Par une seconde clé USB (aucun réseau requis)
+
+Le moyen le plus sûr avant que le NAS ne soit joignable en SSH. Formater en *FAT32* et non en exFAT : `msdosfs` est pris en charge nativement par le noyau FreeBSD, là où l'exFAT réclame `fusefs-exfat`, absent des images d'installation.
+
+Sur le Mac :
+
+[source,shell]
+----
+diskutil list                                    # repérer la clé
+diskutil eraseDisk MS-DOS UGREENHAL MBRFormat /dev/diskN
+cp qemu/build/ugreen-led-ctl-freebsd-amd64 /Volumes/UGREENHAL/ugreen-led-ctl
+diskutil eject /dev/diskN
+----
+
+Sur le NAS, une fois démarré :
+
+[source,shell]
+----
+dmesg | tail                     # repérer la clé, typiquement da0
+mkdir -p /mnt/usb
+mount_msdosfs /dev/da0s1 /mnt/usb
+cp /mnt/usb/ugreen-led-ctl /root/
+chmod +x /root/ugreen-led-ctl    # FAT32 ne conserve pas le bit d'exécution
+umount /mnt/usb
+----
+
+Le `chmod` n'est pas optionnel : FAT32 ne sait pas représenter les permissions Unix, et le fichier arrivera non exécutable.
+
+=== Par le réseau, une fois zVault joignable
+
+[source,shell]
+----
+scp qemu/build/ugreen-led-ctl-freebsd-amd64 root@<ip-du-nas>:/root/ugreen-led-ctl
+----
+
+Plus commode, mais suppose le pont réseau en service et l'adresse du NAS connue — ce qui n'est pas acquis au premier démarrage.
+
+== Compatibilité des versions de FreeBSD
+
+[IMPORTANT]
+====
+Le binaire est produit sur la version de FreeBSD du banc QEMU (15.0 par défaut), alors que les cibles reposent sur des versions antérieures : *zVault sur FreeBSD 13.3*, XigmaNAS sur 14.x.
+
+FreeBSD garantit la compatibilité *ascendante* — un binaire ancien tourne sur un système plus récent — mais jamais l'inverse. Un exécutable lié dynamiquement contre la libc de FreeBSD 15 échouerait sur 13.3, faute des versions de symboles attendues.
+
+Deux protections, dans cet ordre :
+
+. *Édition de liens statique*, activée par défaut dans le `Makefile` (`NO_SHARED=yes`). Le programme n'utilisant que la libc, le coût se limite à quelques centaines de kilo-octets — contre une classe entière de pannes évitées au moment précis où l'on cherche à savoir si une LED s'allume.
+. *Construire sur la version de la cible*, pour lever le doute complètement :
++
+[source,shell]
+----
+FREEBSD_VERSION=13.5-RELEASE ./qemu/00-fetch-image.sh
+FREEBSD_VERSION=13.5-RELEASE ./qemu/01-prepare-vm.sh
+----
+====
+
 == Prérequis d'exécution
 
 [IMPORTANT]

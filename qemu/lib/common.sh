@@ -37,7 +37,19 @@ SSH_DIR="${QEMU_DIR}/ssh"
 BUILD_DIR="${QEMU_DIR}/build"
 
 # Image cloud FreeBSD amd64 (UFS + cloud-init).
-FREEBSD_VERSION="15.0-RELEASE"
+#
+# Version surchargeable, et ce n'est pas cosmétique : les cibles n'ont pas
+# toutes la même base. zVault repose sur FreeBSD 13.3, XigmaNAS sur 14.x.
+# FreeBSD garantit la compatibilité ascendante, jamais l'inverse — compiler
+# sur 15.0 pour exécuter sur 13.3 est le mauvais sens.
+#
+# L'édition de liens statique (défaut du Makefile de src/cli) absorbe
+# l'essentiel du risque. Pour lever le doute complètement, construire sur
+# la version de la cible :
+#
+#   FREEBSD_VERSION=13.5-RELEASE ./00-fetch-image.sh
+#   FREEBSD_VERSION=13.5-RELEASE ./01-prepare-vm.sh   # etc.
+FREEBSD_VERSION="${FREEBSD_VERSION:-15.0-RELEASE}"
 FREEBSD_IMAGE_BASENAME="FreeBSD-${FREEBSD_VERSION}-amd64-BASIC-CLOUDINIT-ufs.qcow2"
 FREEBSD_IMAGE_URL="https://download.freebsd.org/releases/VM-IMAGES/${FREEBSD_VERSION}/amd64/Latest/${FREEBSD_IMAGE_BASENAME}.xz"
 FREEBSD_IMAGE_XZ="${IMAGES_DIR}/${FREEBSD_IMAGE_BASENAME}.xz"

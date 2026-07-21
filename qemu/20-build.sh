@@ -44,6 +44,18 @@ echo
 echo "[build] OK : ${BUILD_DIR}/ugreen-led-ctl-freebsd-amd64"
 run_ssh "file ~/src-cli/ugreen-led-ctl" || true
 
+# Contrôle explicite : un binaire lié dynamiquement contre la libc de cette
+# VM ne tournerait pas forcément sur le NAS, dont la distribution repose sur
+# une version antérieure de FreeBSD.
+if run_ssh "file ~/src-cli/ugreen-led-ctl" 2>/dev/null | grep -q "dynamically linked"; then
+  echo
+  echo "[build] AVERTISSEMENT : binaire lié dynamiquement." >&2
+  echo "        Construit sur FreeBSD ${FREEBSD_VERSION}, il peut échouer sur" >&2
+  echo "        une cible plus ancienne — zVault repose sur FreeBSD 13.3." >&2
+  echo "        Le Makefile produit du statique par défaut : vérifier que" >&2
+  echo "        NO_SHARED n'a pas été désactivé." >&2
+fi
+
 cat <<'EOF'
 
 Étape suivante (sprint 3.3) : copier ce binaire sur le DXP2800 démarré

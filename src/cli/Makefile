@@ -22,4 +22,22 @@ BINDIR?=	/usr/local/bin
 CFLAGS+=	-std=c99
 CFLAGS+=	-Wall -Wextra
 
+# Édition de liens statique par défaut.
+#
+# Le binaire est construit sur une machine de développement et copié sur le
+# NAS, où tourne une distribution dont la version de FreeBSD diffère —
+# zVault est basé sur FreeBSD 13.3, XigmaNAS sur 14.x. FreeBSD garantit la
+# compatibilité ascendante (un binaire ancien tourne sur un système plus
+# récent) mais pas l'inverse : un exécutable lié dynamiquement contre la
+# libc de FreeBSD 15 échouerait sur 13.3, faute des versions de symboles
+# attendues.
+#
+# Le programme n'utilise que la libc : le coût du statique se limite à
+# quelques centaines de kilo-octets, contre une classe entière de pannes
+# évitées au moment précis où l'on cherche à savoir si une LED s'allume.
+#
+#   make                  binaire statique, portable
+#   make NO_SHARED=no     binaire dynamique, plus léger, non portable
+NO_SHARED?=	yes
+
 .include <bsd.prog.mk>
