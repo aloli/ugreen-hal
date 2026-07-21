@@ -120,6 +120,23 @@ Procédure (à dérouler sur le NAS, depuis un live Linux, PAS via ce script) :
   #    COMPRESSÉE largement. Viable, mais voir les deux pièges ci-dessous.
   #  - Disque externe 500 Go / 1 To : aucun souci, option préférable.
   #
+  # OPTION RETENUE FAUTE DE SUPPORT DÉDIÉ : le SSD externe d'exécution
+  # ------------------------------------------------------------------
+  # Le SSD prévu pour faire tourner zVault peut servir d'hôte TEMPORAIRE
+  # au clone, ce qui évite d'attendre un support supplémentaire. Une seule
+  # précaution, mais elle est absolue : l'installeur zVault formatera ce
+  # disque. Le clone doit donc en être sorti avant.
+  #
+  #   1. cloner l'eMMC vers le SSD, depuis SystemRescue (étapes ci-dessous)
+  #   2. brancher le SSD sur le Mac et RECOPIER l'image ailleurs
+  #   3. seulement alors, laisser zVault s'approprier le disque
+  #
+  # Formater ce disque en exFAT, ni en ext4 ni en UFS : Linux écrit l'exFAT
+  # nativement depuis le noyau 5.4 (donc SystemRescue le fait sans rien
+  # installer), et macOS le lit sans logiciel tiers. En ext4, l'image
+  # serait illisible depuis le Mac — c'est-à-dire irrécupérable à l'étape 2,
+  # au moment précis où l'on en a besoin.
+  #
   # PIÈGE 1 — FAT32 : les clés USB sont formatées en FAT32 d'usine, dont la
   # taille maximale par FICHIER est de 4 Gio. Une image de 29 Gio ne peut
   # pas y être écrite : dd s'interrompt à 4 Gio sur une erreur d'écriture,
@@ -195,10 +212,20 @@ Procédure (à dérouler sur le NAS, depuis un live Linux, PAS via ce script) :
   umount /mnt/backup
 
   # ---------------------------------------------------------------
-  # 7. RANGER LA SAUVEGARDE
+  # 7. METTRE LA SAUVEGARDE À L'ABRI
   # ---------------------------------------------------------------
-  # Ce disque ne doit servir qu'à ça : ni support de démarrage, ni support
-  # d'exécution zVault. Consigner dans docs/journal.adoc la date, la taille
+  # Si le clone est sur un support dédié : le ranger, et ne plus s'en
+  # servir ni comme support de démarrage ni comme support d'exécution.
+  #
+  # Si le clone est sur le SSD destiné à zVault : le RECOPIER SUR LE MAC
+  # MAINTENANT. C'est l'étape qu'on est tenté de remettre à plus tard, et
+  # « plus tard » arrive après le formatage.
+  #
+  #   # sur le Mac, SSD branché :
+  #   cp /Volumes/<nom>/ugos-emmc.img.zst ~/sauvegardes/
+  #   shasum -a 256 ~/sauvegardes/ugos-emmc.img.zst   # comparer à l'étape 6
+  #
+  # Dans tous les cas, consigner dans docs/journal.adoc la date, la taille
   # de l'image et l'empreinte sha256 obtenue.
 
 Une fois cette étape validée, et elle seule, le NAS peut être démarré sur
