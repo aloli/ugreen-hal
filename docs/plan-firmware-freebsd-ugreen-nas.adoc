@@ -1,6 +1,6 @@
 = Plan de projet : firmware FreeBSD pour NAS UGREEN (NASync DXP)
 Philippe
-v1.9, 2026-07-19
+v1.10, 2026-07-19
 :toc:
 :toclevels: 3
 :sectnums:
@@ -443,6 +443,11 @@ Le besoin recouvre en réalité deux usages différents, qui n'ont pas la même 
 [NOTE]
 ====
 Révision de la recommandation IP-KVM (v0.9 → v1.2) : avec un écran HDMI et un clavier USB déjà branchés en permanence sur le NAS, le besoin qui justifiait un IP-KVM — accéder au BIOS/menu de boot/console avant que le réseau ne soit disponible — était déjà couvert, à la condition d'accepter d'être physiquement devant la machine pour ces cas-là. L'achat a été repoussé un temps (v0.9), puis confirmé (v1.2) par choix de confort plutôt que par nécessité technique : piloter depuis le Mac sans se déplacer, et profiter du support Tailscale intégré au GL.iNet Comet (GL-RM1) retenu pour un accès distant propre. Sur la question de la souris : elle reste inutile pour ce projet. Tout ce qui se pilote avant que zVault ne soit démarré et joignable en SSH (BIOS AMI, menu de sélection du périphérique de boot, chargeur FreeBSD `loader`, console texte) se navigue entièrement au clavier ; même un IP-KVM ne servirait ici que sa fonction clavier, jamais sa fonction souris.
+====
+
+[NOTE]
+====
+Limite constatée du Comet (GL-RM1) et alternative identifiée (19/07/2026) : ce modèle ne permet pas de garder un écran local branché en même temps que l'accès distant — son unique port HDMI est un « HD In » (capture), sans sortie vers un moniteur local. Le *Comet Pro (GL-RM10)*, environ 180 $, résout précisément ce point : il expose un port `HD In` *et* un port `HD Out` séparé, explicitement documenté comme « 4K Video Passthrough » — un écran local peut donc rester branché en permanence pendant que le flux est aussi capturé pour l'accès distant. Côté clavier, le port USB-C du Comet Pro sert à l'injection HID distante ; un clavier local n'a toutefois pas besoin de passer par le boîtier KVM lui-même : il suffit de le brancher sur un autre port USB du NAS (le DXP2800 en a plusieurs), indépendamment du câble du Comet — ce que le Comet GL-RM1 permettait déjà tout autant, la vidéo étant le seul vrai point bloquant. Existe aussi, côté « vraie » offre entreprise confirmant que le besoin est légitime : les commutateurs KVM-over-IP tels que l'ATEN CN9850 (« 1-Local/Remote Shared Access »), conçus justement pour un accès local et distant simultané en salle serveur — mais à environ 765 $ et pensés pour des datacenters, largement surdimensionnés pour ce projet.
 ====
 
 [NOTE]

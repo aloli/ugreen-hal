@@ -1,5 +1,6 @@
 .DS_Store
 *.pdf
+*.bak
 
 # Configuration Claude Code personnelle (permissions locales, machine de dev)
 .claude/settings.local.json
