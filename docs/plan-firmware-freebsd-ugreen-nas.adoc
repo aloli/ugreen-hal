@@ -452,6 +452,17 @@ Limite constatée du Comet (GL-RM1) et alternative identifiée (19/07/2026) : ce
 
 [NOTE]
 ====
+*Branchement concret du clavier (précision du 19/07/2026)* : avec le Comet Pro en place, le NAS a deux connexions clavier/souris totalement indépendantes, à ne pas confondre.
+
+* *Câble du Comet Pro* (injection à distance) : part du port `USB Type-C (Keyboard, Mouse)` du Comet Pro, se branche sur un port USB du DXP2800 — de préférence son port USB-C 3.2 Gen2 (façade), en USB-C/USB-C natif, sinon un port USB-A via adaptateur. C'est le Comet qui « tape » sur ce port quand vous pilotez depuis le Mac.
+* *Clavier physique local* : un clavier USB tout à fait ordinaire, branché directement sur un *autre* port USB du DXP2800 (un des ports restants) — jamais relié au Comet. Le NAS le voit simplement comme un second clavier ; les deux fonctionnent indépendamment, sans conflit, sans configuration.
+* Le câble d'alimentation du Comet Pro utilise lui aussi un port USB-A, mais côté *secteur/hub*, pas côté NAS — il ne consomme donc aucun port du DXP2800.
+
+Avec 4 à 5 ports USB disponibles sur le DXP2800 selon le modèle exact, la marge reste confortable même une fois le câble HID du Comet et le clavier local branchés.
+====
+
+[NOTE]
+====
 Point de vigilance sur la sortie HDMI du DXP2800 : un utilisateur du forum communautaire UGREEN rapporte que, *sous UGOS*, la sortie HDMI n'est exploitable qu'au travers de l'application mobile du constructeur, en version bêta. Cette limitation semble toutefois relever d'un choix logiciel d'UGOS (un NAS n'a normalement pas besoin d'afficher grand-chose une fois démarré) plutôt que d'une limitation matérielle : le BIOS/UEFI d'un NAS UGREEN reste un firmware x86 standard, qui doit en principe afficher son écran de démarrage sur le port HDMI comme n'importe quel mini PC, indépendamment d'UGOS. La marche à suivre prudente est donc de *vérifier ce point en premier*, avec un simple écran HDMI classique emprunté (avant tout achat d'IP-KVM) : si le BIOS et le menu de démarrage s'affichent normalement, l'IP-KVM fonctionnera de la même façon. Ce test coûte 0 € et évite un achat inutile si, par extraordinaire, la sortie vidéo s'avérait réellement indisponible avant le démarrage d'UGOS.
 
 *Constat confirmé (test réel, sprint 0)* : au premier essai, l'écran affichait l'interface de cast vidéo UGOS (« HDMI直连播放 »), sans rien dire du comportement au démarrage. Au redémarrage suivant, avec le même écran branché, la sortie HDMI a affiché l'intégralité du journal de démarrage texte du noyau Linux et de systemd d'UGOS (messages `ahci`, `scsi`, `usb`, `mmc0`, montage des systèmes de fichiers, démarrage des services, jusqu'au login). *Question tranchée (19/07/2026)* : aucune manipulation particulière n'a été faite pour obtenir cet affichage — simple appui sur le bouton d'alimentation. Le journal de démarrage verbeux est donc le *comportement par défaut* du DXP2800 sur la sortie HDMI, et non un mode déclenché volontairement. Conséquence pratique : la console de démarrage sera visible de la même façon à chaque essai, sans geste préalable à mémoriser — utile pour les sprints 2 et 3, où l'observation de la console est le principal canal de diagnostic.
