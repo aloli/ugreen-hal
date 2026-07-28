@@ -19,12 +19,13 @@
 #      scénario catastrophe classique) ;
 #   3. la confirmation exige de recopier l'identifiant exact du disque, pas
 #      un simple « oui » ;
-#   4. l'empreinte SHA-256 de l'image est vérifiée avant écriture si elle
-#      est fournie.
+#   4. l'empreinte (SHA-256 ou SHA-512) de l'image est vérifiée avant
+#      écriture, à partir du fichier de sommes local ou publié.
 #
 # Licence : BSD-2-Clause — Philippe Nénert (ALOLI sas)
 
 require "digest/sha256"
+require "openssl"
 
 module PrepareUsb
   # Images connues du projet. Les empreintes ne sont volontairement pas
@@ -64,7 +65,7 @@ module PrepareUsb
     Image.new(
       name: "XigmaNAS",
       role: "installeur — seconde cible d'intégration (sprint 5bis)",
-      hint: "XigmaNAS-x64-LiveCD-14.3.0.5.iso",
+      hint: "XigmaNAS-x64-LiveCD-14.3.0.5.10566.iso",
       page: "https://sourceforge.net/projects/xigmanas/files/XigmaNAS-14.3.0.5/",
       url: nil,
       sha256_url: nil
@@ -319,47 +320,98 @@ module PrepareUsb
     end
   end
 
+  # Une empreinte publiée : l'algorithme, et la valeur hexadécimale.
+  # L'algorithme n'est pas fixé d'avance — SystemRescue et zVault publient
+  # du SHA-256, XigmaNAS du SHA-512. Le déduire du fichier de sommes plutôt
+  # que de le supposer évite de comparer une empreinte à la mauvaise.
+  record Checksum, algorithm : String, hex : String
+
   def verify_checksum(image : Image, path : String)
-    title "Vérification de l'empreinte SHA-256"
+    title "Vérification de l'empreinte"
 
     puts "  Une ISO tronquée produit une clé qui démarre à moitié — panne"
     puts "  déroutante, et coûteuse à diagnostiquer sur un NAS sans écran."
     puts
 
-    # Sans téléchargement dans cette session, on peut encore chercher
-    # l'empreinte à l'emplacement connu de l'image.
     @@last_download_url ||= image.url
+    expected_name = expected_filename(image)
 
-    expected = fetch_published_sha256(image)
+    # 1. Fichier de sommes déjà présent à côté de l'image : le cas le plus
+    #    fréquent quand on a téléchargé ISO et somme depuis la même page.
+    expected = find_local_checksum(path, expected_name)
+
+    # 2. Sinon, tenter de le récupérer sur le réseau.
+    expected ||= fetch_published_checksum(image, expected_name)
 
     if expected
       puts
-      puts "  Empreinte publiée récupérée automatiquement :"
-      puts "    #{expected}"
+      puts "  Empreinte #{expected.algorithm} récupérée :"
+      puts "    #{expected.hex}"
     else
       puts "  L'empreinte est publiée à côté de l'image sur le site officiel :"
       puts "    #{image.page}"
       puts
-      expected = ask("Empreinte attendue (entrée vide pour passer) :").downcase
-      if expected.empty?
+      typed = ask("Empreinte attendue (entrée vide pour passer) :").downcase
+      if typed.empty?
         warn "Vérification passée — à vos risques."
         return
       end
+      # Algorithme déduit de la longueur : 64 hex = SHA-256, 128 = SHA-512.
+      algo = typed.size == 128 ? "SHA512" : "SHA256"
+      expected = Checksum.new(algo, typed)
     end
 
-    print "  Calcul en cours (peut prendre une minute)... "
+    print "  Calcul #{expected.algorithm} (peut prendre une minute)... "
     STDOUT.flush
-    actual = sha256_of(path)
+    actual = compute_digest(path, expected.algorithm)
     puts "terminé."
     puts
 
-    if actual == expected
+    if actual == expected.hex
       puts "  Empreintes identiques. Image intègre."
     else
-      puts "  Attendue : #{expected}"
+      puts "  Attendue : #{expected.hex}"
       puts "  Obtenue  : #{actual}"
       raise Aborted.new("Les empreintes diffèrent : l'image est corrompue ou incomplète.")
     end
+  end
+
+  # Cherche un fichier de sommes dans le même dossier que l'image. Couvre
+  # les fichiers par image (<iso>.sha256) comme les récapitulatifs
+  # (XigmaNAS-....SHA512-CHECKSUM, CHECKSUM.SHA256, SHA256SUMS). La sécurité
+  # tient à extract_checksum, qui n'accepte une empreinte que si une ligne
+  # nomme bien l'image attendue : un fichier de sommes destiné à une autre
+  # ISO du même dossier est donc ignoré.
+  def find_local_checksum(iso_path : String, expected_name : String) : Checksum?
+    dir = File.dirname(iso_path)
+
+    candidates = [] of String
+    {".sha256", ".sha512", ".sha256sum", ".sha512sum"}.each do |suffix|
+      exact = "#{iso_path}#{suffix}"
+      candidates << exact if File.file?(exact)
+    end
+    {"*CHECKSUM*", "*SHA*SUMS", "CHECKSUM*"}.each do |pattern|
+      Dir.glob(File.join(dir, pattern)).each do |match|
+        candidates << match if File.file?(match)
+      end
+    end
+
+    candidates.uniq.each do |file|
+      content = read_text(file)
+      next unless content
+      if checksum = extract_checksum(content, expected_name)
+        puts "  Fichier de sommes local : #{File.basename(file)}"
+        return checksum
+      end
+    end
+
+    nil
+  end
+
+  def read_text(path : String) : String?
+    File.read(path)
+  rescue
+    nil
   end
 
   # URL réellement utilisée pour le dernier téléchargement, y compris celle
@@ -402,15 +454,9 @@ module PrepareUsb
   # Récupère l'empreinte publiée par le projet, plutôt que de la faire
   # recopier à la main. Renvoie nil si aucun emplacement ne répond — auquel
   # cas la saisie manuelle reste possible.
-  def fetch_published_sha256(image : Image) : String?
+  def fetch_published_checksum(image : Image, expected_name : String) : Checksum?
     candidates = checksum_candidates(image)
     return nil if candidates.empty?
-
-    # Le nom à rechercher doit venir de l'URL réellement employée, pas du
-    # nom prévu au programme : une URL saisie à la main peut désigner une
-    # autre version, et le récapitulatif de répertoire ne serait alors
-    # jamais reconnu.
-    expected_name = expected_filename(image)
 
     candidates.each do |url|
       print "  Recherche de l'empreinte : #{shorten(url)}... "
@@ -428,10 +474,10 @@ module PrepareUsb
         next
       end
 
-      digest = extract_sha256(output.to_s, expected_name)
-      if digest
+      checksum = extract_checksum(output.to_s, expected_name)
+      if checksum
         puts "trouvée."
-        return digest
+        return checksum
       end
 
       puts "illisible."
@@ -440,25 +486,43 @@ module PrepareUsb
     nil
   end
 
-  # Extrait l'empreinte d'un fichier de sommes. Deux formats circulent :
-  # une ligne unique « <empreinte>  <fichier> », ou un récapitulatif de
-  # répertoire listant des dizaines de fichiers. Dans le second cas, prendre
-  # la première empreinte venue donnerait celle d'une autre image — d'où la
-  # recherche prioritaire de la ligne portant le nom attendu.
-  def extract_sha256(content : String, expected_name : String) : String?
-    lowered = content.downcase
+  # Extrait une empreinte d'un fichier de sommes. Deux formats circulent :
+  # le format BSD « SHA512 (fichier) = <hex> », et le format coreutils
+  # « <hex>  fichier ». Un récapitulatif liste souvent des dizaines de
+  # fichiers : prendre la première empreinte venue donnerait celle d'une
+  # autre image, d'où la recherche prioritaire de la ligne nommant l'image
+  # attendue.
+  def extract_checksum(content : String, expected_name : String) : Checksum?
+    target = expected_name.downcase
 
-    lowered.each_line do |line|
-      next unless line.includes?(expected_name.downcase)
-      if match = line.match(/\b[0-9a-f]{64}\b/)
-        return match[0]
+    content.each_line do |line|
+      next unless line.downcase.includes?(target)
+      if checksum = parse_checksum_line(line)
+        return checksum
       end
     end
 
-    # Fichier ne mentionnant qu'une empreinte, sans nom de fichier : sans
-    # ambiguïté possible, on l'accepte.
-    digests = lowered.scan(/\b[0-9a-f]{64}\b/).map(&.[](0))
-    digests.size == 1 ? digests.first : nil
+    # Fichier ne contenant qu'une seule empreinte, sans nom : sans ambiguïté.
+    parsed = content.each_line.compact_map { |line| parse_checksum_line(line) }.to_a
+    parsed.size == 1 ? parsed.first : nil
+  end
+
+  def parse_checksum_line(line : String) : Checksum?
+    # Format BSD : « SHA512 (fichier) = <hex> » — l'algorithme est nommé.
+    if m = line.match(/\b(SHA256|SHA512)\b.*?([0-9a-fA-F]{64,128})\b/)
+      return Checksum.new(m[1].upcase, m[2].downcase)
+    end
+
+    # Format coreutils : « <hex>  fichier » — algorithme déduit de la
+    # longueur (64 = SHA-256, 128 = SHA-512). On ignore SHA-1 (40) et MD5
+    # (32), trop faibles pour servir de garantie d'intégrité ici.
+    if m = line.match(/\b([0-9a-fA-F]{128}|[0-9a-fA-F]{64})\b/)
+      hex = m[1].downcase
+      algo = hex.size == 128 ? "SHA512" : "SHA256"
+      return Checksum.new(algo, hex)
+    end
+
+    nil
   end
 
   def expected_filename(image : Image) : String
@@ -474,15 +538,25 @@ module PrepareUsb
     url.size <= 60 ? url : "#{url[0, 30]}…#{url[-28..]}"
   end
 
-  def sha256_of(path : String) : String
-    digest = Digest::SHA256.new
+  def compute_digest(path : String, algorithm : String) : String
+    digest = new_digest(algorithm)
     File.open(path) do |file|
       buffer = Bytes.new(1024 * 1024)
       while (read = file.read(buffer)) > 0
         digest.update(buffer[0, read])
       end
     end
-    digest.final.hexstring
+    digest.hexfinal
+  end
+
+  # Digest::SHA256 (bibliothèque standard) et OpenSSL::Digest héritent tous
+  # deux de la classe abstraite Digest, d'où le type de retour commun.
+  def new_digest(algorithm : String) : Digest
+    case algorithm
+    when "SHA256" then Digest::SHA256.new
+    when "SHA512" then OpenSSL::Digest.new("SHA512")
+    else               raise Aborted.new("Algorithme d'empreinte non géré : #{algorithm}")
+    end
   end
 
   # Liste uniquement les disques externes physiques : le disque interne du
