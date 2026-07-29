@@ -1,0 +1,62 @@
+= Réseau du banc de test — pont WiFi GL.iNet Flint (GL-AX1800)
+:toc:
+:sectnums:
+
+Comment relier le NAS de test au réseau alors que le poste de travail n'a que du WiFi. Le pont retenu est le GL.iNet Flint (GL-AX1800), qui remplace l'Opal (GL-SFT1200) cédé — voir le plan de projet pour la justification du choix.
+
+== Le principe à comprendre avant les menus
+
+En mode *répéteur*, le Flint fonctionne en *WISP* : il se connecte au WiFi de la maison comme un client, et crée *son propre sous-réseau* (`192.168.8.0/24` par défaut), protégé par un pare-feu. Ce sous-réseau remonte vers la box pour l'accès Internet.
+
+*Conséquence structurante* : tout ce qui doit communiquer — le NAS, l'IP-KVM Comet, et le Mac qui pilote — doit se trouver *sur ce sous-réseau*. Un Mac resté sur le WiFi de la maison ne peut pas joindre un NAS placé derrière le Flint : le pare-feu WISP les sépare. La règle simple qui évite le piège : *le Mac rejoint le WiFi du Flint*. Il conserve Internet (via le Flint) et se retrouve sur le même réseau que le NAS.
+
+== Mise en service
+
+. Alimenter le Flint. Depuis le Mac, rejoindre son WiFi par défaut (SSID et mot de passe sur l'étiquette sous le boîtier — souvent `GL-AX1800-xxx` / `goodlife`).
+. Ouvrir http://192.168.8.1 et créer le mot de passe administrateur.
+. *Répéteur* : `INTERNET` → `Repeater` → laisser scanner → choisir le WiFi de la maison → saisir le mot de passe → `Apply`. Le WISP est le mode par défaut.
+. *Convertir le port WAN en LAN* (firmware 4.7+) : `INTERNET` → `Ethernet` → icône engrenage → `Port Management` → passer le port en `LAN` → `Apply`. La liaison montante passant par le WiFi, le port WAN est inutilisé ; on récupère ainsi *cinq ports LAN* (les quatre d'origine plus l'ex-WAN). Le WiFi se coupe brièvement pendant l'opération.
+. Câbler le NAS (port 2,5 GbE) sur un port LAN du Flint, le Comet sur un autre.
+. Garder le Mac sur le WiFi du Flint.
+
+[NOTE]
+====
+Les ports du Flint (GL-AX1800, 1ʳᵉ génération) sont en *gigabit*. Le port 2,5 GbE du NAS négociera donc à 1 Gb/s — sans conséquence pour le banc de test. Le débit reste de toute façon plafonné par la liaison WiFi montante, bien inférieure au gigabit.
+====
+
+== Accès au NAS
+
+Une fois le NAS câblé, vérifier depuis sa console qu'il a bien une adresse et l'accès Internet :
+
+[source,shell]
+----
+ip -br a                 # adresse attendue en 192.168.8.x
+ping -c 2 9.9.9.9        # accès Internet (nécessaire pour installer des paquets)
+----
+
+Pour le piloter depuis le Mac plutôt qu'à la console. *Sous SystemRescue, sshd refuse la connexion tant que root n'a pas de mot de passe* — en définir un sur la console du NAS :
+
+[source,shell]
+----
+passwd
+----
+
+Puis, depuis le Mac (l'adresse figure dans `ip -br a`, ou dans la liste `Clients` de l'interface du Flint) :
+
+[source,shell]
+----
+ssh root@192.168.8.XXX
+----
+
+[TIP]
+====
+L'adresse attribuée par DHCP peut changer d'un démarrage à l'autre. Tant que le NAS démarre sur des supports jetables (clés USB), ce n'est pas gênant : on relève l'adresse à chaque fois. Une réservation DHCP (par adresse MAC, dans l'interface du Flint) ou une adresse fixe deviendra utile une fois zVault installé de façon durable.
+====
+
+== Ordre de branchement des appareils, une fois tout reçu
+
+Pour le montage définitif visant plusieurs NAS sur un seul boîtier :
+
+. Configurer le Flint en répéteur (ci-dessus), port WAN converti en LAN.
+. Brancher chaque NAS et l'IP-KVM Comet sur les ports LAN — cinq au total.
+. Le Comet obtient alors une adresse du Flint, accessible en HTTPS depuis le Mac ; activer Tailscale sur le Comet si un accès depuis l'extérieur du domicile devient utile.

@@ -62,6 +62,9 @@ The detailed technical documentation under `docs/` is currently written in Frenc
 |`docs/essai-terrain.adoc`
 |Field checklist to work through in front of the NAS: readings to take, commands to run, and an error-reading grid for the first LED driver attempt.
 
+|`docs/reseau-banc.adoc`
+|Bringing up the WiFi bridge (GL.iNet Flint) that connects the test NAS to the network, and SSH access from the workstation.
+
 |`src/cli/`
 |The HAL core: FreeBSD userland utilities in C, knowing only `smbus(4)`/`gpio(4)` — never zVault or XigmaNAS. Currently `ugreen-led-ctl`.
 

@@ -62,6 +62,9 @@ La documentation technique détaillée (`docs/`) est rédigée en français pour
 |`docs/essai-terrain.adoc`
 |Fiche à dérouler devant le NAS : relevés à faire, commandes à lancer, et grille de lecture des erreurs pour le premier essai du pilote LED.
 
+|`docs/reseau-banc.adoc`
+|Mise en service du pont WiFi (GL.iNet Flint) qui relie le NAS de test au réseau, et accès SSH depuis le poste de travail.
+
 |`src/cli/`
 |Cœur du HAL : utilitaires en espace utilisateur pour FreeBSD, en C, ne connaissant que `smbus(4)`/`gpio(4)` — jamais zVault ni XigmaNAS. Actuellement `ugreen-led-ctl`.
 
