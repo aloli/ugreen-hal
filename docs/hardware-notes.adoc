@@ -121,6 +121,13 @@ Ce document consigne, modèle par modèle, les relevés matériels effectués ph
 |Cohérent avec le protocole déjà documenté par `miskcoo/ugreen_leds_controller` (https://github.com/miskcoo/ugreen_leds_controller) pour ce modèle — à utiliser comme base de portage vers la pile `smbus(4)`/`ichsmb(4)` sous FreeBSD (voir `protocol-i2c-leds.adoc` pour le détail complet du protocole et la justification de ce choix).
 |===
 
+[NOTE]
+====
+*Confirmation indépendante par sonde i2c directe (29/07/2026).* Sous SystemRescue, `i2c-i801` s'attache au contrôleur SMBus (`8086:54a3`, Alder Lake-N, `00:1f.4`) et crée le bus `i2c-11` ; une fois `i2c-dev` chargé, `i2cdetect -y -r 11` détecte effectivement un périphérique à l'adresse *`0x3a`*. Ce n'est plus une simple relecture du journal de démarrage : c'est une sonde active du bus, sur l'exemplaire réel de test, avec les outils Linux qui ont servi à rétro-documenter le protocole.
+
+Deux autres adresses répondent sur le même bus, sans lien connu avec le contrôleur LED : `0x44` et `0x48` — non identifiées, à creuser plus tard. `0x50` est marquée `UU` (déjà réclamée par un pilote) : c'est l'EEPROM SPD de la RAM, instanciée automatiquement au démarrage (confirmé par `dmesg`), sans rapport avec le sujet.
+====
+
 === Boutons
 
 [cols="2,3"]

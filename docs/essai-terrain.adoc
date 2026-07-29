@@ -4,6 +4,50 @@
 
 Fiche à dérouler devant le NAS, et à remplir au fur et à mesure. Chaque section indique ce qu'on cherche à établir, la commande, et ce qu'il faut noter — y compris en cas d'échec, car un échec précisément décrit vaut mieux qu'un succès vague.
 
+== Reprise de séance (après la soirée du 29/07/2026)
+
+[IMPORTANT]
+====
+*SystemRescue est un environnement live, en RAM.* Tout ce qui a été installé ou configuré pendant la dernière séance (paquet `i2c-tools`, modules chargés, mot de passe root, règles `nftables` vidées) est perdu au moindre redémarrage du NAS. Seuls les réglages du *BIOS* (watchdog désactivé, Secure Boot désactivé) sont persistants — pas besoin d'y retourner.
+====
+
+Séquence complète à rejouer au prochain démarrage, dans l'ordre. Acquis de la dernière séance, pour mémoire : réseau en service via le pont GL.iNet Flint (voir `docs/reseau-banc.adoc`), contrôleur SMBus confirmé `8086:54a3` sur le bus `i2c-11`, adresse `0x3a` confirmée par sonde directe.
+
+[source,shell]
+----
+# 1. Démarrage : Ctrl-F12 -> UEFI: USB
+#    (l'ordre de boot n'a pas été changé, à refaire à chaque fois)
+
+# 2. Charger les modules SMBus/i2c (silencieux si succès)
+modprobe i2c-i801 i2c-dev
+
+# 3. Vérifier le réseau (le Flint doit être allumé et déjà configuré)
+ip -br a
+ping -c 2 9.9.9.9
+
+# 4. Mot de passe root, obligatoire pour sshd
+passwd
+
+# 5. Si ssh échoue en « No route to host » malgré un ping qui passe :
+#    nftables de l'image live rejette le port 22, sans rapport avec le
+#    routage. Vidage sans risque dans cet environnement jetable.
+nft flush ruleset
+
+# 6. Installer i2c-tools (nécessite le réseau)
+pacman -Sy i2c-tools
+
+# 7. Reconfirmer le bus et l'adresse (devrait redonner exactement 0x3a)
+lspci -nn | grep -i smbus        # attendu : 8086:54a3, bus PCI 00:1f.4
+i2cdetect -y -r 11                 # attendu : 0x3a présent dans la grille
+
+# 8. NOUVEAU — pas encore tenté : lecture de bloc réelle à l'adresse
+#    0x81 (état de la LED power), pour valider le protocole (format et
+#    somme de contrôle) sous Linux avant de l'exposer côté FreeBSD.
+i2ctransfer -y 11 w1@0x3a 0x81 r11@0x3a
+----
+
+Pour l'étape 8, retranscrire les 11 octets renvoyés, même en cas d'erreur. Vérification attendue : la somme des octets 0 à 8 (modulo 65536) doit correspondre aux deux derniers octets (somme de contrôle, poids fort puis poids faible) — voir `docs/protocol-i2c-leds.adoc`, section « Lecture d'état ».
+
 [NOTE]
 ====
 *Rien de ce qui suit n'écrit sur le stockage interne.* Le NAS démarre sur une clé USB, l'eMMC reste intacte. Le clone de sauvegarde (`scripts/backup-nas.sh`) ne conditionne que la phase 4, et n'est pas un prérequis de cette fiche.

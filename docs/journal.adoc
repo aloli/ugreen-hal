@@ -166,6 +166,14 @@ Intention exprimée le 20/07/2026 : exploiter le CPU du NAS lorsqu'il ne sert pa
 * *Contrôleur SMBus identifié* : `8086:54a3`, « Intel Corporation Alder Lake-N SMBus », à `00:1f.4`. Confirme le retour du forum FreeBSD et fixe le point de vérification pour zVault — `ichsmb(4)` doit connaître cet identifiant. Le banc QEMU (ICH9) ne couvre pas ce point.
 * *i2cdetect absent* : SystemRescue (base Arch) ne fournit pas `i2c-tools` d'office. Modules `i2c-i801` et `i2c-dev` chargés sans erreur ; reste à installer le paquet (`pacman -Sy i2c-tools`), sous réserve de réseau, pour confirmer `0x3a` et tenter une lecture LED directe façon `miskcoo/ugreen_leds_controller` — validation du protocole sous Linux avant FreeBSD.
 
+== 2026-07-29 — Réseau en service, premier scan i2c : le 0x3a répond
+
+* *Réseau opérationnel* : pont GL.iNet Flint configuré en répéteur WISP, NAS câblé sur un port LAN, Mac rejoint le même WiFi pour rester sur le même sous-réseau (voir `docs/reseau-banc.adoc`). SSH établi vers SystemRescue.
+* *Piège SSH résolu* : `ssh` échouait en « No route to host » malgré un `ping` réussi — non pas un problème de routage, mais le pare-feu `nftables` par défaut de l'image live qui rejetait le port 22. `nft flush ruleset` a suffi.
+* *Piège `i2c-dev` résolu* : `i2c-i801` s'attachait bien au contrôleur (confirmé par `dmesg` : bus `i2c-11` créé sur `8086:54a3`), mais `i2c-dev` n'était pas chargé — d'où l'absence de `/dev/i2c-*` et un `i2cdetect -l` muet. Un `modprobe -v i2c-dev` explicite a réglé la question. Corrige au passage une inquiétude soulevée en cours de route : l'identifiant PCI `8086:54a3` (Alder Lake-N) est bien reconnu par ce noyau — pas de lacune du pilote Linux.
+* *Le `0x3a` répond, confirmé par sonde active* : `i2cdetect -y -r 11` détecte un périphérique à l'adresse exacte documentée depuis le sprint 0. C'est la première vérification qui ne repose plus sur la relecture d'un journal de démarrage, mais sur une sonde réelle du bus, avec les outils Linux qui ont servi à rétro-documenter le protocole. Deux adresses supplémentaires répondent sur le même bus (`0x44`, `0x48`), non identifiées, sans lien connu avec les LED — à creuser plus tard.
+* *Prochaine étape* : tenter une lecture de bloc réelle (`i2ctransfer`) à l'adresse `0x81` (état de la LED power), et vérifier que la somme de contrôle du bloc reçu est cohérente. Objectif : valider le protocole complet sous Linux, avant de l'exposer côté FreeBSD — pour isoler, le jour venu, un problème de protocole d'un problème de portage.
+
 == Prochaines étapes
 
 * *Fait le 20/07/2026* : issue de contact zVault publiée (https://github.com/zvaultio/Community/issues/37). Surveiller les réponses. Le ticket XigmaNAS sur `sourceforge.net/p/xigmanas/tickets/` reste volontairement différé, à envoyer une fois le pilote validé sur matériel (après le sprint 3).

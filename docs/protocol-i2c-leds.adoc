@@ -16,6 +16,7 @@ Statut de ce document : le protocole ci-dessous est désormais *documenté avec 
 * Adresse esclave I2C/SMBus du contrôleur : `0x3a` — *attention, adresse en convention 7 bits (Linux)*. L'équivalent FreeBSD est `0x74` : voir la section « Convention d'adressage » ci-dessous, c'est le piège le plus coûteux identifié à ce jour.
 * Le module Linux qui le pilote côté UGOS s'appelle `leds-mcu` (`ug_led_driver_init`), mais le projet de référence utilisé ici pour le portage est l'implémentation *espace utilisateur* de `miskcoo/ugreen_leds_controller`, plus simple à porter vers FreeBSD qu'un module noyau Linux.
 * Modèle explicitement supporté par ce projet de référence : DXP2800 (voir ticket amont https://github.com/miskcoo/ugreen_leds_controller/issues/19).
+* *Confirmation par sonde directe (29/07/2026)* : sous SystemRescue démarré sur le NAS de test, avec `i2c-i801`/`i2c-dev` chargés (bus `i2c-11`, contrôleur `8086:54a3` à `00:1f.4`), `i2cdetect -y -r 11` détecte un périphérique à l'adresse `0x3a`. C'est la première vérification qui ne repose plus sur une relecture de journal de démarrage, mais sur une sonde active du bus — avec les mêmes outils Linux qui ont servi à documenter le protocole de référence. Prochaine étape : tenter une lecture de bloc réelle avec `i2ctransfer`, pour valider le protocole (format, somme de contrôle) sous Linux avant de l'exposer côté FreeBSD.
 
 == Protocole (extrait du code de référence)
 
@@ -315,4 +316,7 @@ main(void)
 
 |2026-07-20
 |Recherche de l'état de l'art avant le premier essai physique. Découverte du fil « NASync LED controller » du forum FreeBSD (https://forums.freebsd.org/threads/nasync-led-controller.100889/), ouvert le 21/12/2025 : un utilisateur tente exactement le même portage sur un NASync sous FreeBSD 14.3-RELEASE, sans dépôt ni code publié. Deux enseignements repris ci-dessus : (1) l'adresse `0x3a` est en convention 7 bits Linux et vaut `0x74` sous FreeBSD — cause d'un blocage de cinq semaines pour l'auteur du fil, corrigé ici avant même le premier essai ; (2) le contrôleur n'apparaît pas comme `I801` sous FreeBSD mais comme « Intel Alder Lake SMBus controller », et le choix entre `iic(4)` et `smbus(4)` reste à déterminer par observation. Aucune de ces deux informations n'est encore vérifiée sur notre matériel.
+
+|2026-07-29
+|*Premier essai physique sur le DXP2800.* Watchdog et Secure Boot désactivés dans le BIOS, réseau en service (pont GL.iNet Flint), SSH établi vers SystemRescue. Contrôleur SMBus confirmé par `lspci` : `8086:54a3` (Alder Lake-N), exactement le nom rapporté par le forum FreeBSD dès juillet 2026. `i2c-i801` s'y attache sans difficulté (`dmesg` : bus `i2c-11` créé), levant le doute sur un éventuel défaut de support de cet identifiant par le pilote Linux. Après chargement de `i2c-dev` (absent du premier `modprobe`, à charger explicitement), `i2cdetect -y -r 11` *détecte un périphérique à `0x3a`* — première confirmation par sonde active, indépendante des journaux de démarrage relus par le passé. Prochaine étape : lecture de bloc réelle via `i2ctransfer` pour valider le protocole sous Linux avant FreeBSD.
 |===
