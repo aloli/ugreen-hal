@@ -118,8 +118,9 @@ Ce document consigne, modèle par modèle, les relevés matériels effectués ph
 |ITE IT8613, révision 8613.12 (ligne `Found chip IT8613 rev 8613. 12`)
 
 |Watchdog
-|Exposé sous Linux comme « IT87 WDT », `/dev/watchdog0`, timeout matériel 20 minutes. +
-*Piège identifié le 20/07/2026* : ce watchdog est *actif au niveau du BIOS*. Sous UGOS, un service le « nourrit » en continu ; sous un système alternatif qui ne le connaît pas, plus personne ne le fait — la machine redémarre alors toute seule au bout du délai, sans message d'erreur, ce qui se confond aisément avec un plantage ou une instabilité matérielle. Des utilisateurs ayant installé d'autres systèmes sur du matériel UGREEN recommandent explicitement de le *désactiver dans le BIOS* (`Ctrl-F12`) avant toute installation : « Ctrl-F12 on boot to get into the BIOS, disable the watchdog, set boot device appropriately » (https://forums.truenas.com/t/actual-installs-on-ugreen-hardware-observations-experiences-tips/6910). À vérifier au premier passage dans le BIOS
+|Exposé sous Linux comme « IT87 WDT », `/dev/watchdog0`. Sous UGOS, le pilote programme un timeout de 20 minutes. +
+*Confirmé sur matériel le 28/07/2026* : ce watchdog est *actif au niveau du BIOS*, et beaucoup plus agressif que ne le laissait croire le chiffre de 20 minutes relevé sous UGOS. Démarré sur SystemRescue, sans aucun pilote pour le « nourrir », le DXP2800 *redémarre de lui-même en moins d'une minute*, puis repart sur UGOS (l'eMMC interne, entrée `debian` du menu de démarrage). Le délai par défaut armé par le BIOS est donc de l'ordre de la dizaine de secondes, bien inférieur aux 20 minutes que le pilote UGOS impose une fois chargé. +
+*Conséquence* : sans désactivation préalable, aucune session utile n'est possible sous un système alternatif — la machine redémarre avant qu'on ait le temps de travailler. La désactivation se fait dans le *Setup* du BIOS (`Ctrl-F12` → `Enter Setup`), et non par le menu de démarrage ponctuel. Cohérent avec le retour communautaire : « Ctrl-F12 on boot to get into the BIOS, disable the watchdog, set boot device appropriately » (https://forums.truenas.com/t/actual-installs-on-ugreen-hardware-observations-experiences-tips/6910). Intitulé exact de l'option et emplacement dans les menus : *à relever au prochain passage dans le Setup*
 
 |Buzzer
 |Ligne `DXP2800 SATA&beep init` observée pendant le chargement du pilote UGREEN
@@ -178,7 +179,7 @@ L'inconnue qui subsiste : `ugpt` accepte-t-il d'autres verbes qu'`upgrade` — u
 |Une seule entrée, nommée `UGOSPRO-NAS` (label générique de la ligne de firmware, indépendant du hostname réseau `DXP2800-2CFF`)
 
 |Touche d'accès au BIOS
-|*`Ctrl-F12` au démarrage* (et non les touches usuelles Suppr/F2/F7/F11 d'un BIOS AMI). Source : retours d'utilisateurs ayant installé d'autres systèmes sur du matériel UGREEN, forum TrueNAS (https://forums.truenas.com/t/actual-installs-on-ugreen-hardware-observations-experiences-tips/6910), relevé le 20/07/2026 — *à confirmer par observation directe au premier démarrage sur clé USB*
+|*`Ctrl-F12` au démarrage — confirmé sur matériel le 28/07/2026.* Ouvre un menu de sélection du périphérique de démarrage à trois entrées : `debian` (UGOS sur l'eMMC interne), `UEFI: USB` (le support externe), et `Enter Setup` (configuration du BIOS). *Distinction importante* : `UEFI: USB` est un démarrage ponctuel, à usage unique — au redémarrage suivant, la machine reprend son ordre par défaut (`debian`). Pour un réglage durable (ordre de démarrage, désactivation du watchdog), il faut passer par `Enter Setup`, pas par ce menu ponctuel
 
 |Écran affiché avant GRUB
 |Un splash avec le logo « UGREEN » s'affiche avant le menu GRUB — confirme que la sortie HDMI est active dès les toutes premières étapes du démarrage, cohérent avec les conclusions déjà tirées sur le firmware AMI standard. Mode verbeux confirmé le 20/07/2026 comme *comportement par défaut* : aucune manipulation n'est nécessaire pour obtenir le journal de démarrage complet, un simple appui sur le bouton d'alimentation suffit
