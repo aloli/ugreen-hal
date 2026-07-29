@@ -41,11 +41,14 @@ Fiche à dérouler devant le NAS, et à remplir au fur et à mesure. Chaque sect
 *À noter* : la touche qui a réellement fonctionné.
 
 |☐
-|*Désactiver le watchdog.* Le chip ITE IT8613 redémarre la machine au bout de 20 minutes si aucun système ne le nourrit. Sous UGOS un service s'en charge ; sous FreeBSD, personne. Sans cette désactivation, des redémarrages spontanés viendront brouiller tous les essais suivants — et ressembleront à s'y méprendre à une instabilité matérielle. +
-*À noter* : l'intitulé exact de l'option et son emplacement dans les menus.
+|*Désactiver le watchdog.* `Advanced` → `WatchDog Settings` → `Watch Dog Control` → `[Disabled]`. Réglé à 3 minutes par défaut (confirmé le 28/07/2026), il redémarre la machine en pleine session sinon — et le symptôme ressemble à s'y méprendre à une instabilité matérielle.
 
 |☐
-|Régler l'ordre de démarrage sur la clé USB.
+|*Désactiver le Secure Boot.* `Security` → `Secure Boot`. SystemRescue démarre même s'il est actif, mais *zVault ne démarrera pas* : FreeBSD n'a pas de chargeur signé pour les clés Microsoft. Autant le désactiver dès maintenant pour ne pas buter dessus à l'étape zVault. +
+*À noter* : son état avant modification.
+
+|☐
+|Ordre de démarrage : *inutile d'y toucher.* Une fois le watchdog désactivé, `Ctrl-F12` → `UEFI: USB` suffit à chaque session, et garde UGOS (`Boot Option #1 = debian`) comme défaut sûr.
 |===
 
 == Étape 2 — SystemRescue : relevés, sans risque

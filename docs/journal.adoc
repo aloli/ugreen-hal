@@ -147,6 +147,17 @@ Intention exprimée le 20/07/2026 : exploiter le CPU du NAS lorsqu'il ne sert pa
 * *Grille de diagnostic établie* pour l'essai sur matériel (voir `protocol-i2c-leds.adoc`) : `ENXIO` accusera l'adresse, `EINVAL` accusera notre code, un succès sans réaction de la LED désignera l'octet de longueur du bloc SMBus. Sans cette grille, le réflexe devant un échec serait de suspecter le protocole — l'hypothèse la plus coûteuse à explorer.
 * *Ce qui reste hors de portée du banc, définitivement* : le dialogue avec le microcontrôleur UGREEN. C'est une puce soudée sur la carte mère ; aucune émulation ne la reproduit. Le sprint 3.3 conserve donc tout son sens, mais il aborde le matériel avec une seule inconnue au lieu de quatre.
 
+== 2026-07-28 — Premier contact matériel : BIOS relevé, watchdog identifié
+
+* *Premier essai sur le DXP2800.* `Ctrl-F12` confirmé comme touche du menu de démarrage. Démarrage sur SystemRescue réussi jusqu'au prompt root, puis redémarrage spontané vers UGOS — le watchdog, non désactivé faute d'être passé par le Setup.
+* *Watchdog localisé et chiffré* : `Advanced` → `WatchDog Settings`, `Watch Dog Control [Enabled]`, `Degree [Minute]`, `Timer 3` — soit 3 minutes armées dès l'allumage. Corrige l'estimation « dizaine de secondes » de la veille : le « moins d'une minute » ressenti venait des ~2 minutes de démarrage de SystemRescue, qui ne laissaient qu'une minute avant déclenchement.
+* *BIOS entièrement cartographié* (voir `hardware-notes.adoc`) : Setup AMI Aptio, six onglets. Confirme au passage plusieurs relevés antérieurs — puce Super I/O `IT8613`, contrôleur `eMMC 5.1`, deux emplacements `M.2 PCIE`, N100, 8 Gio DDR5 à 4800 MHz.
+* *Deux découvertes qui pèseront sur la suite* :
+** *Secure Boot présent.* SystemRescue a démarré avec (chargeur signé), mais zVault ne le pourra pas — FreeBSD n'a pas de chargeur signé pour les clés Microsoft. À désactiver avant l'étape zVault, sous peine d'un échec de démarrage difficile à diagnostiquer.
+** *Le contrôleur eMMC est désactivable dans le BIOS* (`Chipset` → `Onboard Devices`). Levier propre pour empêcher le démarrage d'UGOS en phase 4, sans toucher à son contenu.
+* *Numéro de série* volontairement gardé hors du dépôt public : UGREEN lie ses fichiers de restauration au numéro de série, à conserver dans un relevé privé.
+* *Prochain geste* : désactiver watchdog et Secure Boot dans le Setup, sauvegarder, puis reprendre les relevés `lsblk` / `lspci` / `i2cdetect` sans la contrainte de temps.
+
 == Prochaines étapes
 
 * *Fait le 20/07/2026* : issue de contact zVault publiée (https://github.com/zvaultio/Community/issues/37). Surveiller les réponses. Le ticket XigmaNAS sur `sourceforge.net/p/xigmanas/tickets/` reste volontairement différé, à envoyer une fois le pilote validé sur matériel (après le sprint 3).

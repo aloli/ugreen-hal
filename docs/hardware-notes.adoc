@@ -119,8 +119,14 @@ Ce document consigne, modèle par modèle, les relevés matériels effectués ph
 
 |Watchdog
 |Exposé sous Linux comme « IT87 WDT », `/dev/watchdog0`. Sous UGOS, le pilote programme un timeout de 20 minutes. +
-*Confirmé sur matériel le 28/07/2026* : ce watchdog est *actif au niveau du BIOS*, et beaucoup plus agressif que ne le laissait croire le chiffre de 20 minutes relevé sous UGOS. Démarré sur SystemRescue, sans aucun pilote pour le « nourrir », le DXP2800 *redémarre de lui-même en moins d'une minute*, puis repart sur UGOS (l'eMMC interne, entrée `debian` du menu de démarrage). Le délai par défaut armé par le BIOS est donc de l'ordre de la dizaine de secondes, bien inférieur aux 20 minutes que le pilote UGOS impose une fois chargé. +
-*Conséquence* : sans désactivation préalable, aucune session utile n'est possible sous un système alternatif — la machine redémarre avant qu'on ait le temps de travailler. La désactivation se fait dans le *Setup* du BIOS (`Ctrl-F12` → `Enter Setup`), et non par le menu de démarrage ponctuel. Cohérent avec le retour communautaire : « Ctrl-F12 on boot to get into the BIOS, disable the watchdog, set boot device appropriately » (https://forums.truenas.com/t/actual-installs-on-ugreen-hardware-observations-experiences-tips/6910). Intitulé exact de l'option et emplacement dans les menus : *à relever au prochain passage dans le Setup*
+*Confirmé sur matériel le 28/07/2026, réglage BIOS relevé.* Le watchdog est actif par défaut. Emplacement et valeurs exactes : `Advanced` → `WatchDog Settings` :
+
+* `Watch Dog Control` : `[Enabled]`
+* `Watch Dog Degree` : `[Minute]`
+* `Watch Dog Timer` : `3`
+
+Soit *3 minutes, armées dès l'allumage*. Correction d'une estimation précédente qui parlait d'une « dizaine de secondes » : le délai réel est de 3 minutes. L'impression de « moins d'une minute » observée au premier essai s'explique par le temps de démarrage — SystemRescue met environ 2 minutes à atteindre son prompt, ne laissant qu'une minute avant le déclenchement. Les 20 minutes relevées sous UGOS ne valent, elles, qu'une fois le pilote UGOS chargé et reprogrammant le compteur. +
+*Conséquence* : sans désactivation préalable (`Watch Dog Control` → `[Disabled]`), aucune session utile n'est possible sous un système alternatif — la machine redémarre au bout de 3 minutes, puis repart sur UGOS (l'eMMC interne, entrée `debian` du menu de démarrage). La désactivation se fait dans le *Setup* (`Ctrl-F12` → `Enter Setup`), pas par le menu de démarrage ponctuel. Cohérent avec le retour communautaire : « Ctrl-F12 on boot to get into the BIOS, disable the watchdog » (https://forums.truenas.com/t/actual-installs-on-ugreen-hardware-observations-experiences-tips/6910)
 
 |Buzzer
 |Ligne `DXP2800 SATA&beep init` observée pendant le chargement du pilote UGREEN
@@ -165,6 +171,33 @@ Le paquet lui-même n'est pas versionné dans ce dépôt : il pèse 1,75 Gio par
 * « Le firmware étant téléchargeable, la sauvegarde est inutile » — *non démontré*. Le point d'entrée documenté est une mise à niveau exigeant une installation préexistante en version ≥ 1.12.0.1. Sur un eMMC effacé, il n'y a rien à mettre à niveau.
 
 L'inconnue qui subsiste : `ugpt` accepte-t-il d'autres verbes qu'`upgrade` — une installation à nu, une restauration ? Sa charge utile est une archive Makeself qui n'a pas pu être ouverte proprement lors de cette analyse. Tant que ce point n'est pas tranché, *le clone de l'eMMC reste la seule voie de retour certaine*, et il ne coûte qu'une soirée.
+
+=== Configuration du BIOS (relevé du 28/07/2026)
+
+Setup AMI Aptio, accessible par `Ctrl-F12` → `Enter Setup`. BIOS DXP2800 V1.2 251215, ME FW 16.50.15.1515, build du 15/12/2025. Six onglets : `Main`, `Advanced`, `Chipset`, `Security`, `Boot`, `Save & Exit`.
+
+[cols="2,3", options="header"]
+|===
+|Onglet / sous-menu |Contenu utile au projet
+
+|`Advanced`
+|Sous-menus : `CPU Configuration`, `SATA Configuration`, `Power Settings`, `WatchDog Settings` (voir ci-dessus), `IT8613 Super IO Configuration` (confirme la puce Super I/O IT8613), `Hardware Monitor` (températures/ventilateurs), `Network Stack Configuration`, `NVMe Configuration`.
+
+|`Chipset` → `Onboard Devices`
+|Tous `[Enabled]` : `eMMC 5.1 Controller`, `M.2 PCIE 1`, `M.2 PCIE 2`, `Onboard Lan`, `C states`. +
+*Point notable pour la phase 4* : le contrôleur eMMC peut être *désactivé* ici. C'est un levier propre pour empêcher le démarrage d'UGOS sans toucher à son contenu — à garder en tête au moment du remplacement du firmware interne.
+
+|`Security` → `Secure Boot`
+|*Présent.* État exact à relever. Détermine si zVault pourra démarrer : SystemRescue tolère le Secure Boot (chargeur signé via shim), mais *FreeBSD/zVault non* — pas de chargeur signé pour les clés Microsoft. À *désactiver* avant tout essai zVault.
+
+|`Boot` → `Boot Option Priorities`
+|Ordre par défaut : #1 `Hard Disk:debian` (UGOS sur l'eMMC), #2 `NVME`, #3 `CD/DVD`, #4 `SD`, #5 `USB Hard Disk`, #6 `USB CD/DVD:UEFI: USB`, #7 `USB Key`, #8 `USB Floppy`, #9 `USB Lan`, #10 `Network`. `Setup Prompt Timeout` : 1 s. Une fois le watchdog désactivé, inutile de modifier cet ordre : la sélection ponctuelle `Ctrl-F12` → `UEFI: USB` suffit et garde UGOS comme défaut.
+|===
+
+[NOTE]
+====
+Le *numéro de série* de l'appareil est visible dans l'onglet `Main` (`System Serial Number`). Il n'est volontairement pas recopié ici : le dépôt est public, et UGREEN lie ses fichiers de restauration au numéro de série (voir la section « Paquet de firmware UGOS »). À conserver dans un relevé privé plutôt que dans la documentation publique.
+====
 
 === Chaîne de démarrage (bootloader)
 
