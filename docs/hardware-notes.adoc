@@ -65,6 +65,35 @@ Ce document consigne, modèle par modèle, les relevés matériels effectués ph
 `mmcblk0p6` : ext4, label `UGREEN-SERVICE` +
 `mmcblk0p7` : ext4, label `USER-DATA` +
 `mmcblk0p5` : utilisé comme swap (`zram`, voir plus bas)
+
+|Table complète, confirmée sous SystemRescue (28/07/2026)
+|`lsblk` donne la correspondance taille/label exacte : `p1` 256M `kernel`, `p2` 2G, `p3` 10M `factory`, `p4` 2G `rootfs2`, `p5` 2G `ugswap`, `p6` 4G `UGREEN-SERVICE`, `p7` 18,9G `USER-DATA`, `p128` 239K, plus `mmcblk0boot0` et `mmcblk0boot1` (4M chacun, les partitions de démarrage eMMC). Correspond exactement aux relevés antérieurs faits par photo.
+|===
+
+=== Disques des baies SATA
+
+[cols="2,3"]
+|===
+|Champ |Valeur
+
+|Présence
+|Deux disques installés, vus comme `sda` et `sdb`, 223,6 Gio chacun (SSD 2,5" de 240 Go). Colonne `RM` à `0` sous `lsblk` : *non amovibles*, donc bien sur les ports SATA internes et non en USB.
+
+|Conséquence pour le projet
+|Les baies étant peuplées, les LED de baies (`disk1`, `disk2`) deviennent testables, et pas seulement les indicateurs d'alimentation et de réseau. Permet aussi les tests de retrait à chaud prévus au sprint 5.
+|===
+
+=== Contrôleur SMBus hôte (relevé du 28/07/2026)
+
+[cols="2,3"]
+|===
+|Champ |Valeur
+
+|Identité PCI
+|`00:1f.4 SMBus [0c05]: Intel Corporation Alder Lake-N SMBus [8086:54a3]` (sortie de `lspci -nn`)
+
+|Conséquence FreeBSD
+|C'est ce contrôleur qui doit porter le bus où répond le contrôleur LED. L'identifiant `8086:54a3` confirme le retour d'un utilisateur du forum FreeBSD (« Intel Alder Lake SMBus controller »). *Point à vérifier au premier démarrage zVault* : que `ichsmb(4)` connaisse bien cet identifiant et s'y attache. Le banc QEMU, lui, émule un ICH9 (`82801I`) — la validation qu'il apporte porte donc sur la structure des ioctls, pas sur l'attachement à cette puce précise.
 |===
 
 === Contrôleur LED (façade et baies)

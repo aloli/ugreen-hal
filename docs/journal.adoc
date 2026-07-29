@@ -158,6 +158,14 @@ Intention exprimée le 20/07/2026 : exploiter le CPU du NAS lorsqu'il ne sert pa
 * *Numéro de série* volontairement gardé hors du dépôt public : UGREEN lie ses fichiers de restauration au numéro de série, à conserver dans un relevé privé.
 * *Prochain geste* : désactiver watchdog et Secure Boot dans le Setup, sauvegarder, puis reprendre les relevés `lsblk` / `lspci` / `i2cdetect` sans la contrainte de temps.
 
+== 2026-07-28 (suite) — Watchdog désactivé, relevés SystemRescue
+
+* *Watchdog désactivé dans le Setup* : session SystemRescue désormais stable, plus de redémarrage. La voie est libre pour les relevés.
+* *eMMC confirmée au bit près* : `lsblk` donne la table taille/label complète (`kernel`, `factory`, `rootfs2`, `ugswap`, `UGREEN-SERVICE`, `USER-DATA`, `boot0`/`boot1`), identique aux relevés photographiques antérieurs.
+* *Les deux SSD sont installés dans les baies* : `sda` et `sdb`, 223,6 Gio, `RM 0` (non amovibles = SATA interne). Les LED de baies deviennent donc testables, et les tests de retrait à chaud du sprint 5 sont possibles.
+* *Contrôleur SMBus identifié* : `8086:54a3`, « Intel Corporation Alder Lake-N SMBus », à `00:1f.4`. Confirme le retour du forum FreeBSD et fixe le point de vérification pour zVault — `ichsmb(4)` doit connaître cet identifiant. Le banc QEMU (ICH9) ne couvre pas ce point.
+* *i2cdetect absent* : SystemRescue (base Arch) ne fournit pas `i2c-tools` d'office. Modules `i2c-i801` et `i2c-dev` chargés sans erreur ; reste à installer le paquet (`pacman -Sy i2c-tools`), sous réserve de réseau, pour confirmer `0x3a` et tenter une lecture LED directe façon `miskcoo/ugreen_leds_controller` — validation du protocole sous Linux avant FreeBSD.
+
 == Prochaines étapes
 
 * *Fait le 20/07/2026* : issue de contact zVault publiée (https://github.com/zvaultio/Community/issues/37). Surveiller les réponses. Le ticket XigmaNAS sur `sourceforge.net/p/xigmanas/tickets/` reste volontairement différé, à envoyer une fois le pilote validé sur matériel (après le sprint 3).
