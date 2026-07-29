@@ -48,6 +48,29 @@ Puis, depuis le Mac (l'adresse figure dans `ip -br a`, ou dans la liste `Clients
 ssh root@192.168.8.XXX
 ----
 
+[IMPORTANT]
+====
+*Piège rencontré et résolu le 28/07/2026* : `ssh` échoue avec `No route to host`, alors que `ping` vers la même adresse réussit sans problème. Le message est trompeur — la route existe bel et bien, sinon le ping échouerait aussi. En réalité, le pare-feu `nftables` de l'image live SystemRescue rejette activement le port 22 (`icmp-host-unreachable`), tout en laissant passer l'ICMP.
+
+Diagnostic, sur la console du NAS :
+
+[source,shell]
+----
+systemctl status sshd      # confirmer que le service tourne
+ss -tlnp | grep :22        # confirmer qu'il écoute
+nft list ruleset           # voir les règles en vigueur
+----
+
+Correctif, sans risque dans cet environnement jetable :
+
+[source,shell]
+----
+nft flush ruleset
+----
+
+Le SSH passe immédiatement après.
+====
+
 [TIP]
 ====
 L'adresse attribuée par DHCP peut changer d'un démarrage à l'autre. Tant que le NAS démarre sur des supports jetables (clés USB), ce n'est pas gênant : on relève l'adresse à chaque fois. Une réservation DHCP (par adresse MAC, dans l'interface du Flint) ou une adresse fixe deviendra utile une fois zVault installé de façon durable.
