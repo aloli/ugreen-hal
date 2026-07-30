@@ -183,6 +183,9 @@ Deux autres adresses répondent sur le même bus, sans lien connu avec le contr�
 
 |Conséquence FreeBSD
 |Orienter le portage vers `gpio(4)` plutôt que `iic(4)` pour ce composant.
+
+|Comportement du bouton d'alimentation (relevé le 30/07/2026)
+|*Sous UGOS* : un appui d'au moins 3 secondes est nécessaire pour déclencher l'extinction. *Sous SystemRescue* : un simple appui suffit à provoquer un arrêt immédiat. Indique qu'UGOS fait tourner un composant actif (démon ou pilote noyau spécifique) qui distingue appui court et appui long sur ce bouton GPIO ; SystemRescue, lui, retombe sur le comportement par défaut du noyau générique (arrêt au moindre événement bouton, sans filtrage de durée). Chemin matériel distinct du microcontrôleur SMBus des LED (`ug-gpiokey` contre le contrôleur `0x3a`/`0x74`) — sans lien de cause établi avec l'échec d'écriture LED documenté dans `protocol-i2c-leds.adoc`, mais à garder en tête comme un autre comportement propriétaire à reproduire pour la parité avec UGOS.
 |===
 
 === Supervision matérielle (watchdog, buzzer, capteurs)
