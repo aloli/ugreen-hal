@@ -56,7 +56,17 @@ echo "[restore] repérage automatique du bus SMBus I801"
 bus="$(i2cdetect -l | awk '/I801/ {print $1}' | sed 's/i2c-//')"
 
 if [ -z "${bus}" ]; then
-  echo "  (bus SMBus I801 introuvable — voir i2cdetect -l en entier)" >&2
+  # Ne pas se contenter d'un message d'échec laconique : sans la sortie
+  # brute, impossible de savoir si i2c-dev n'a pas chargé, si i2c-i801
+  # n'a pas attaché, ou si le nom de l'adaptateur diffère simplement de
+  # ce qui est attendu.
+  echo "  Bus SMBus I801 introuvable. Diagnostic :" >&2
+  echo "  --- i2cdetect -l ---" >&2
+  i2cdetect -l >&2
+  echo "  --- modules i2c chargés ---" >&2
+  lsmod | grep -i i2c >&2 || echo "  (aucun)" >&2
+  echo "  --- dmesg (i2c/i801/smbus) ---" >&2
+  dmesg | grep -iE 'i2c|i801|smbus' >&2 || echo "  (rien)" >&2
 else
   echo "  bus détecté : i2c-${bus}"
   echo "[restore] scan i2c (adresse 0x3a attendue pour le contrôleur LED)"
@@ -75,8 +85,8 @@ nas_ip="$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -
 
 if [ -n "${nas_ip}" ]; then
   echo "  Adresse de ce NAS : ${nas_ip}"
-  echo "  Connexion depuis le Mac, quel que soit le dossier courant :"
-  echo "    ssh -i /Users/philippe/prod-aloli/ugreen-hal/scripts/nas-ssh/id_ed25519 root@${nas_ip}"
+  echo "  Connexion depuis la racine du dépôt ugreen-hal, sur le Mac :"
+  echo "    ssh -i scripts/nas-ssh/id_ed25519 root@${nas_ip}"
 else
   echo "  Adresse IP non détectée automatiquement — voir : ip -br a"
 fi
