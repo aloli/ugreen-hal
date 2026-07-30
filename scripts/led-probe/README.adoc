@@ -1,0 +1,56 @@
+= led-probe — protocole de test LED en Crystal natif
+:toc:
+
+Réécriture de `scripts/nas-led-test.py` en Crystal, appelant directement l'ioctl `I2C_SMBUS` du noyau Linux plutôt que de passer par `i2c-tools`/`smbus2`. Objectif : se passer de la dépendance réseau (`pacman -Sy i2c-tools`, `pip install smbus2`) sur chaque unité du parc — copier un seul binaire, `chmod +x`, exécuter.
+
+[IMPORTANT]
+====
+*Statut de validation, honnête* : la logique de détection de bus et la gestion d'erreur ont été vérifiées (compilation macOS, échec propre en l'absence de `/sys/class/i2c-dev`). Les appels ioctl eux-mêmes — la partie qui compte — *n'ont pas encore été exercés contre un vrai contrôleur SMBus Linux*. Contrairement au code FreeBSD de `src/cli/`, ce fichier n'a pas eu de banc QEMU pour le valider ce soir : automatiser le démarrage de SystemRescue (pas de cloud-init, mécanisme « autorun » nécessitant l'injection d'un paramètre noyau via édition du menu GRUB) s'est révélé plus fragile à mettre en œuvre correctement qu'à laisser de côté pour l'instant. *La première vraie validation se fera à la compilation sur une unité réelle*, ci-dessous.
+====
+
+== Compiler (sur une unité réelle, pas sur macOS)
+
+Le Mac est en ARM ; les NAS sont en x86_64. Compiler directement sur l'une des unités déjà accessible en SSH (voir `scripts/nas-connect.cr`), une fois par campagne :
+
+[source,shell]
+----
+crystal run scripts/nas-connect.cr -- <nom>
+----
+
+Puis, sur l'unité, une fois connecté :
+
+[source,shell]
+----
+pacman -Sy --noconfirm crystal
+----
+
+Envoyer le source depuis le Mac (nouveau terminal) :
+
+[source,shell]
+----
+scp -i scripts/nas-ssh/id_ed25519 scripts/led-probe/led_probe.cr root@<ip>:/root/
+----
+
+Compiler sur l'unité :
+
+[source,shell]
+----
+crystal build --release -o led_probe led_probe.cr
+----
+
+Rapatrier le binaire vers le Mac, pour le distribuer aux autres unités sans repasser par `pacman -Sy crystal` à chaque fois :
+
+[source,shell]
+----
+scp -i scripts/nas-ssh/id_ed25519 root@<ip>:/root/led_probe scripts/led-probe/led_probe
+----
+
+Une fois ce fichier présent, `scripts/nas-led-test.cr` le préfère automatiquement au script Python — voir sa documentation.
+
+== Pourquoi pas de liaison statique pour l'instant
+
+`src/cli/` (le pilote FreeBSD) lie statiquement, parce qu'il doit tourner sur des versions de FreeBSD plus anciennes que celle utilisée pour compiler (zVault est bloqué sur 13.3). Ici, la situation est différente : toutes les unités du parc démarrent la *même* image SystemRescue — même noyau, même glibc, tel quel. Un binaire dynamique compilé sur l'une fonctionne donc sans réserve sur les six autres. La liaison statique resterait un filet de sécurité supplémentaire, pas une nécessité — à envisager si l'usage s'étend à des images SystemRescue de versions différentes.
+
+== Piste non retenue ce soir : automatiser via QEMU
+
+SystemRescue propose un mécanisme « autorun » (voir https://www.system-rescue.org/manual/Run_your_own_scripts_with_autorun/) permettant d'exécuter un script au démarrage depuis un support attaché, via le paramètre noyau `ar_source=`. Sans cloud-init, l'injecter suppose d'automatiser le menu GRUB à l'aveugle (séquence de touches envoyées sur la console série, sans confirmation intermédiaire que chaque étape a réussi) — jugé trop fragile à livrer sans l'avoir testé de bout en bout. Compiler directement sur une unité réelle est plus simple, plus rapide, et plus représentatif de l'environnement cible. Cette automatisation reste une piste valable si le besoin de recompiler fréquemment se confirme.

@@ -75,7 +75,7 @@ The detailed technical documentation under `docs/` is currently written in Frenc
 |Local FreeBSD build bench (QEMU, amd64). Compiles `src/cli/` against real FreeBSD headers and produces a binary that runs on the NAS. Cannot emulate the LED controller — that is physical hardware.
 
 |`scripts/`
-|Supporting tooling, written in Crystal or shell: `prepare-usb.cr` (interactive USB stick preparation), `backup-nas.sh` (cloning the internal eMMC before any firmware work), `systemrescue-restore.sh` (restores a live SystemRescue session after a reboot, fetchable in one line via `curl`).
+|Supporting tooling, written in Crystal or shell: `prepare-usb.cr` (interactive USB stick preparation), `backup-nas.sh` (cloning the internal eMMC before any firmware work), `systemrescue-restore.sh` (restores a live SystemRescue session after a reboot, fetchable in one line via `curl`), `nas-connect.cr`/`nas-led-test.cr` (drive the test fleet by short name, identical test protocol across units), `led-probe/` (native Crystal rewrite of the test protocol, no Python/pip dependency).
 
 |`tests/`
 |Automated tests (upcoming).
