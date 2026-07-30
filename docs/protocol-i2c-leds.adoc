@@ -4,7 +4,7 @@
 
 [NOTE]
 ====
-Statut de ce document : le protocole ci-dessous est désormais *documenté avec précision*, extrait du code source de référence `miskcoo/ugreen_leds_controller` (implémentation en espace utilisateur, `cli/i2c.cpp` et `cli/ugreen_leds.cpp`) et recoupé avec le README officiel de ce projet. Il n'a en revanche *pas encore été testé sous FreeBSD* — c'est l'objet du sprint 3 du plan de projet, dès que le NAS de test est disponible avec un environnement FreeBSD fonctionnel.
+Statut de ce document : le protocole ci-dessous est *confirmé exact sur le matériel réel*, sous Linux (30/07/2026) — lecture de bloc réelle à l'adresse `0x3a`, décodage cohérent, somme de contrôle vérifiée par calcul indépendant (voir plus bas). Ce n'est plus une simple extraction du code source de référence `miskcoo/ugreen_leds_controller`. Il reste en revanche *non testé sous FreeBSD* — c'est l'objet du sprint 3 du plan de projet, une fois le NAS de test disponible sous zVault. Le format de trame Linux confirmé ici (bloc « i2c », sans octet de longueur) est précisément le point d'incertitude documenté plus bas pour FreeBSD.
 ====
 
 == Ce qui est confirmé par observation directe (DXP2800)
@@ -16,7 +16,66 @@ Statut de ce document : le protocole ci-dessous est désormais *documenté avec 
 * Adresse esclave I2C/SMBus du contrôleur : `0x3a` — *attention, adresse en convention 7 bits (Linux)*. L'équivalent FreeBSD est `0x74` : voir la section « Convention d'adressage » ci-dessous, c'est le piège le plus coûteux identifié à ce jour.
 * Le module Linux qui le pilote côté UGOS s'appelle `leds-mcu` (`ug_led_driver_init`), mais le projet de référence utilisé ici pour le portage est l'implémentation *espace utilisateur* de `miskcoo/ugreen_leds_controller`, plus simple à porter vers FreeBSD qu'un module noyau Linux.
 * Modèle explicitement supporté par ce projet de référence : DXP2800 (voir ticket amont https://github.com/miskcoo/ugreen_leds_controller/issues/19).
-* *Confirmation par sonde directe (29/07/2026)* : sous SystemRescue démarré sur le NAS de test, avec `i2c-i801`/`i2c-dev` chargés (bus `i2c-11`, contrôleur `8086:54a3` à `00:1f.4`), `i2cdetect -y -r 11` détecte un périphérique à l'adresse `0x3a`. C'est la première vérification qui ne repose plus sur une relecture de journal de démarrage, mais sur une sonde active du bus — avec les mêmes outils Linux qui ont servi à documenter le protocole de référence. Prochaine étape : tenter une lecture de bloc réelle avec `i2ctransfer`, pour valider le protocole (format, somme de contrôle) sous Linux avant de l'exposer côté FreeBSD.
+* *Confirmation par sonde directe (29/07/2026)* : sous SystemRescue démarré sur le NAS de test, avec `i2c-i801`/`i2c-dev` chargés (bus `i2c-11`, contrôleur `8086:54a3` à `00:1f.4`), `i2cdetect -y -r 11` détecte un périphérique à l'adresse `0x3a`.
+* *Protocole validé par lecture réelle (30/07/2026)* : voir la section « Première lecture réelle » ci-dessous. Le format de bloc, le découpage des octets et l'algorithme de somme de contrôle sont désormais confirmés par calcul indépendant sur une trame réellement reçue de la puce — pas seulement déduits du code source.
+
+=== Première lecture réelle (30/07/2026)
+
+`i2ctransfer` échoue sur ce contrôleur (`Error: Adapter does not have I2C transfers capability`) : `i801` n'implémente pas les transactions I2C génériques (`I2C_RDWR`), seulement le sous-ensemble SMBus. Confirme, indépendamment du code FreeBSD, que le bon point d'entrée est bien la pile SMBus et non de l'I2C brut.
+
+Lecture réussie via le module Python `smbus` (`read_i2c_block_data`, qui utilise `I2C_SMBUS_I2C_BLOCK_DATA` — le même sous-protocole « bloc sans octet de longueur » que le code de référence) :
+
+[source,shell]
+----
+python3 -c "
+import smbus
+bus = smbus.SMBus(11)
+data = bus.read_i2c_block_data(0x3a, 0x81, 11)
+print(' '.join(f'{b:02x}' for b in data))
+"
+----
+
+Résultat obtenu (LED power, registre `0x81`) :
+
+[source]
+----
+01 b4 ff ff ff 00 00 00 00 03 b2
+----
+
+Décodage, selon le format documenté plus haut :
+
+[cols="1,2,3"]
+|===
+|Octet(s) |Valeur |Signification
+
+|`0x00`
+|`01`
+|État : allumée
+
+|`0x01`
+|`b4` (180)
+|Luminosité, 180/255
+
+|`0x02`-`0x04`
+|`ff ff ff`
+|Couleur : blanc
+
+|`0x05`-`0x06`
+|`00 00`
+|Durée de cycle : 0 ms (sans objet, pas de clignotement)
+
+|`0x07`-`0x08`
+|`00 00`
+|Durée allumée dans le cycle : 0 ms
+
+|`0x09`-`0x0a`
+|`03 b2`
+|Somme de contrôle
+|===
+
+*Vérification indépendante de la somme de contrôle* : somme des octets `0x00` à `0x08` = `1 + 180 + 255 + 255 + 255 + 0 + 0 + 0 + 0 = 946 = 0x03b2`. Correspond exactement aux deux derniers octets reçus. Une correspondance aussi précise sur neuf octets non triviaux exclut une coïncidence : la puce répond bien selon le protocole documenté, et notre lecture le décode correctement.
+
+Conséquence importante pour le sprint 3 (FreeBSD) : cette lecture confirme que la puce ne renvoie *aucun octet de longueur* — les 11 octets reçus sont directement les données. Si `SMB_BREAD` sous FreeBSD implémente le « block read » SMBus standard (qui, lui, insère un octet de longueur), le résultat serait décalé. Ce point, déjà signalé dans l'encadré « Incertitude majeure » ci-dessous, est donc *renforcé* par cette confirmation Linux plutôt que résolu — seul un essai sous FreeBSD tranchera.
 
 == Protocole (extrait du code de référence)
 

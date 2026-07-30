@@ -174,6 +174,14 @@ Intention exprimée le 20/07/2026 : exploiter le CPU du NAS lorsqu'il ne sert pa
 * *Le `0x3a` répond, confirmé par sonde active* : `i2cdetect -y -r 11` détecte un périphérique à l'adresse exacte documentée depuis le sprint 0. C'est la première vérification qui ne repose plus sur la relecture d'un journal de démarrage, mais sur une sonde réelle du bus, avec les outils Linux qui ont servi à rétro-documenter le protocole. Deux adresses supplémentaires répondent sur le même bus (`0x44`, `0x48`), non identifiées, sans lien connu avec les LED — à creuser plus tard.
 * *Prochaine étape* : tenter une lecture de bloc réelle (`i2ctransfer`) à l'adresse `0x81` (état de la LED power), et vérifier que la somme de contrôle du bloc reçu est cohérente. Objectif : valider le protocole complet sous Linux, avant de l'exposer côté FreeBSD — pour isoler, le jour venu, un problème de protocole d'un problème de portage.
 
+== 2026-07-30 — Le protocole LED est confirmé exact, par lecture réelle
+
+* *Première lecture de bloc réussie sur le matériel réel.* `i2ctransfer` échoue (`Adapter does not have I2C transfers capability`) : `i801` n'implémente pas l'I2C générique (`I2C_RDWR`), seulement le sous-ensemble SMBus — confirme indépendamment que viser `smbus(4)` plutôt que `iic(4)` sous FreeBSD était le bon choix. Contournement via le module Python `smbus` (`read_i2c_block_data`, sous-protocole « bloc sans octet de longueur »), déjà installé comme dépendance d'`i2c-tools`.
+* *Résultat* : `01 b4 ff ff ff 00 00 00 00 03 b2` à l'adresse `0x3a`, registre `0x81` (LED power). Décodage cohérent (allumée, luminosité 180/255, blanc). *Somme de contrôle vérifiée par calcul indépendant* : `946 = 0x03b2`, exacte au bit près.
+* *Portée de cette confirmation* : le protocole rétro-documenté depuis le code source `miskcoo/ugreen_leds_controller` n'est plus une simple lecture de code — il est validé par une trame réellement reçue de la puce, sur notre exemplaire de test. C'est la première preuve directe, au-delà de toute extrapolation, que l'adresse, le découpage des octets et l'algorithme de somme de contrôle sont corrects.
+* *Ce que ça n'apporte pas encore* : la confirmation reste côté Linux. Elle renforce (sans le résoudre) le doute déjà noté sur FreeBSD : la puce ne renvoie aucun octet de longueur, alors que `SMB_BREAD` pourrait en insérer un selon la sémantique SMBus standard. Seul un essai sous zVault tranchera.
+* *Prochaine étape* : tenter une écriture réelle (extinction puis rallumage de la LED power) et observer la façade — le pendant « écriture » de cette même validation, en attente du geste physique.
+
 == Prochaines étapes
 
 * *Fait le 20/07/2026* : issue de contact zVault publiée (https://github.com/zvaultio/Community/issues/37). Surveiller les réponses. Le ticket XigmaNAS sur `sourceforge.net/p/xigmanas/tickets/` reste volontairement différé, à envoyer une fois le pilote validé sur matériel (après le sprint 3).
