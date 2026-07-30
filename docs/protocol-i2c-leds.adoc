@@ -77,6 +77,29 @@ Décodage, selon le format documenté plus haut :
 
 Conséquence importante pour le sprint 3 (FreeBSD) : cette lecture confirme que la puce ne renvoie *aucun octet de longueur* — les 11 octets reçus sont directement les données. Si `SMB_BREAD` sous FreeBSD implémente le « block read » SMBus standard (qui, lui, insère un octet de longueur), le résultat serait décalé. Ce point, déjà signalé dans l'encadré « Incertitude majeure » ci-dessous, est donc *renforcé* par cette confirmation Linux plutôt que résolu — seul un essai sous FreeBSD tranchera.
 
+=== Écriture : mystère non résolu (30/07/2026)
+
+[IMPORTANT]
+====
+*Statut : la lecture est validée avec certitude, l'écriture ne l'est pas.* Toutes les tentatives d'écriture réelle, ce soir, sont restées sans effet visible sur la façade — y compris avec l'outil de référence original compilé et exécuté directement sur notre matériel. Ce n'est *pas* un défaut de notre réimplémentation : la trame envoyée est identique au bit près à ce que produit le code source de référence.
+====
+
+*Ce qui a été éliminé méthodiquement, dans l'ordre :*
+
+. *Bibliothèque Python* : deux implémentations différentes (`smbus`, `smbus2`) produisent le même échec silencieux — écarte un bug de bibliothèque spécifique.
+. *Contenu de la trame* : reconstruite manuellement et comparée octet par octet à la sortie réelle de `_change_status()` (`ugreen_leds.cpp`) et `compute_checksum()` — identique, y compris la subtilité que la somme de contrôle est calculée *avant* que l'identifiant de LED ne remplace le `0x00` placé en tête du tampon (sans conséquence numérique pour `led_id=0`, puisque `0x00` ajouté à une somme ne la change pas).
+. *Outil de référence original* : cloné, compilé sur SystemRescue (après avoir dû réinstaller `linux-api-headers` puis `glibc`, l'image live étant allégée de ses en-têtes), exécuté directement. `power -status` confirme une lecture identique à la nôtre. `power -off` s'exécute sans erreur mais sans effet ; `power -on` échoue explicitement (« failed to change status! »). *Le même code, chez son propre auteur, échoue sur notre exemplaire.*
+. *Module noyau concurrent* (`led_ugreen`, mentionné comme source de conflit connue dans le README amont) : absent de `lsmod`.
+. *Pilote LED compilé en dur dans le noyau* : absent de `/sys/class/leds/` (qui ne liste que les LED du contrôleur réseau `igc` et du clavier) et de `dmesg`.
+
+*Piste ouverte, non résolue* : le registre de confirmation (`0x80`, cf. section précédente) renvoie systématiquement `0x02` après chaque écriture, jamais `1` (le seul code que `is_last_modification_successful()` traite comme un succès dans le code de référence). Recherche dans les issues du dépôt amont : l'issue https://github.com/miskcoo/ugreen_leds_controller/issues/111 rapporte *exactement la même valeur* (`0x02`) sur un *DXP4800GT* (plateforme AMD, complètement différente de notre N100 Intel), avec un symptôme apparenté (l'écriture déclenche un comportement transitoire au lieu d'appliquer l'état demandé). L'auteur de cette issue l'attribue à une différence de firmware propre au GT — mais si notre DXP2800 Intel, un des modèles sur lesquels l'outil a justement été validé à l'origine, produit la même anomalie, l'explication « spécifique au GT » est probablement incomplète.
+
+*Ce qui reste à faire* :
+
+* Chercher si l'issue #111 a reçu une résolution ou un échange plus approfondi non capturé dans ce résumé.
+* Envisager de publier notre propre relevé sur cette issue (donnée croisée modèle Intel/AMD, potentiellement utile à l'auteur amont) — action qui reste à la discrétion de l'utilisateur, pas de ce document.
+* Garder à l'esprit que ce test se fait contre une puce qui n'a *jamais reçu aucune commande d'un hôte* depuis l'allumage (SystemRescue, pas UGOS). Le pendant FreeBSD (sprint 3.3) fera tourner un pilote qui *reste* l'interlocuteur en continu, contexte différent d'un simple appel ponctuel en ligne de commande — cette énigme pourrait ne pas se reproduire à l'identique une fois notre propre code FreeBSD en place, ou au contraire s'y manifester aussi. À vérifier le moment venu, sans présumer de l'issue.
+
 == Protocole (extrait du code de référence)
 
 === Convention d'adressage : 7 bits (Linux) contre 8 bits (FreeBSD)
