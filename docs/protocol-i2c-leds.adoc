@@ -97,8 +97,78 @@ Conséquence importante pour le sprint 3 (FreeBSD) : cette lecture confirme que 
 *Ce qui reste à faire* :
 
 * Chercher si l'issue #111 a reçu une résolution ou un échange plus approfondi non capturé dans ce résumé.
-* Envisager de publier notre propre relevé sur cette issue (donnée croisée modèle Intel/AMD, potentiellement utile à l'auteur amont) — action qui reste à la discrétion de l'utilisateur, pas de ce document.
+* Un brouillon de commentaire pour cette issue, avec notre relevé croisé Intel/AMD, est prêt dans `docs/prise-de-contact.adoc` — publication laissée à la discrétion de l'utilisateur.
 * Garder à l'esprit que ce test se fait contre une puce qui n'a *jamais reçu aucune commande d'un hôte* depuis l'allumage (SystemRescue, pas UGOS). Le pendant FreeBSD (sprint 3.3) fera tourner un pilote qui *reste* l'interlocuteur en continu, contexte différent d'un simple appel ponctuel en ligne de commande — cette énigme pourrait ne pas se reproduire à l'identique une fois notre propre code FreeBSD en place, ou au contraire s'y manifester aussi. À vérifier le moment venu, sans présumer de l'issue.
+
+=== Protocole de test comparatif multi-modèles (parc disponible, 30/07/2026)
+
+Le parc de test (voir `hardware-notes.adoc`, section « Parc matériel disponible ») dépasse largement les besoins de cette seule énigme : sept unités, dont deux variantes AMD directement comparables à l'issue #111. Plutôt que de multiplier les essais dans le désordre, la même séquence courte, reproduite à l'identique sur chaque unité :
+
+[cols="1,4"]
+|===
+|Étape |Commande / relevé
+
+|1
+|`i2cdetect -y -r N` sur le bus SMBus repéré — confirmer l'adresse `0x3a` (ou son équivalent si le chip ID diffère sur les modèles GT, dont la plateforme AMD n'a pas de PCH Intel).
+
+|2
+|`ugreen_leds_cli power -status` — confirmer une lecture cohérente et son chip ID (`lspci -nn \| grep -i smbus`).
+
+|3
+|`ugreen_leds_cli power -off` puis `-on` — noter si la LED réagit visuellement.
+
+|4
+|Lecture du registre `0x80` juste après chaque écriture (`read_byte_data(0x3a, 0x80)`) — noter la valeur exacte, pas seulement « succès/échec ».
+|===
+
+[cols="2,1,1,1,3", options="header"]
+|===
+|Modèle |Adresse confirmée |Écriture effective |Registre `0x80` |Note
+
+|DXP2800 (unité de test initiale)
+|`0x3a`
+|Non
+|`0x02`
+|Résultat déjà établi, voir plus haut.
+
+|DXP2800 (second exemplaire)
+|
+|
+|
+|
+
+|DXP4800 Plus
+|
+|
+|
+|
+
+|DXP4800 Pro
+|
+|
+|
+|
+
+|DXP8800 Plus
+|
+|
+|
+|
+
+|DXP2800 GT
+|
+|
+|
+|Plateforme AMD — chip ID et adresse probablement différents, à relever sans supposer `0xc5b2`/`0x3a`.
+
+|DXP4800 GT
+|
+|
+|
+|Modèle exact de l'issue #111 (variante 4 baies) — comparaison la plus directe possible.
+|===
+
+Tableau à compléter au fur et à mesure des essais, plutôt qu'en une seule séance — chaque ligne remplie devient une entrée datée du journal.
 
 == Protocole (extrait du code de référence)
 

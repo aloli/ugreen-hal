@@ -185,6 +185,13 @@ Intention exprimée le 20/07/2026 : exploiter le CPU du NAS lorsqu'il ne sert pa
 * *Piste ouverte* : le registre de confirmation `0x80` renvoie systématiquement `0x02` après écriture, jamais le `1` attendu. L'issue amont https://github.com/miskcoo/ugreen_leds_controller/issues/111 rapporte exactement la même valeur sur un DXP4800GT (plateforme AMD) — un modèle pourtant différent du nôtre (Intel N100). Le mystère reste entier, mais n'est visiblement pas propre à notre exemplaire ni à notre plateforme.
 * *Mise en perspective* : ce test se fait contre une puce qui n'a jamais reçu de commande d'un hôte depuis l'allumage (SystemRescue, pas UGOS). Le sprint 3.3 sous FreeBSD fera tourner un pilote qui reste l'interlocuteur en continu — contexte différent d'un appel ponctuel en ligne de commande. À revérifier le moment venu, sans présumer que le problème se reproduira à l'identique.
 
+== 2026-07-30 (suite) — Inventaire du parc de test : sept unités, pas deux
+
+* *Le parc réel dépasse largement le plan initial.* Celui-ci ne prévoyait qu'un second exemplaire (DXP2800 ou DXP4800 Plus, pour XigmaNAS). Sept unités sont en réalité disponibles : DH4300 (ARM, hors périmètre), DXP2800 ×2, DXP4800 Plus, DXP4800 Pro, DXP8800 Plus, DXP2800 GT, DXP4800 GT. Détail consigné dans `hardware-notes.adoc`, section « Parc matériel disponible ».
+* *Conséquence immédiate* : ce parc permet de trancher si l'anomalie du registre `0x80` (voir entrée précédente) est propre à l'exemplaire testé, au modèle, à la plateforme Intel, ou générale à toute la gamme — y compris via les deux variantes GT (AMD), directement comparables au DXP4800GT de l'issue #111.
+* *Protocole de test comparatif écrit*, avec tableau de résultats à remplir au fur et à mesure (`protocol-i2c-leds.adoc`, section dédiée) : même séquence courte sur chaque unité (détection i2c, lecture d'état, tentative d'écriture, relevé du registre `0x80`). Un point de vigilance noté pour les variantes GT : plateforme AMD, chip ID et adresse SMBus probablement différents de `0xc5b2`/`0x3a` — à relever, pas à supposer.
+* *Conséquence pour le sprint 5* : la généralisation multi-modèles, initialement prévue bien plus tard et progressivement, devient atteignable beaucoup plus tôt et plus largement que le plan ne l'anticipait — sous réserve, toujours, de stabiliser d'abord le cœur du pilote sur le DXP2800.
+
 == Prochaines étapes
 
 * *Fait le 20/07/2026* : issue de contact zVault publiée (https://github.com/zvaultio/Community/issues/37). Surveiller les réponses. Le ticket XigmaNAS sur `sourceforge.net/p/xigmanas/tickets/` reste volontairement différé, à envoyer une fois le pilote validé sur matériel (après le sprint 3).

@@ -2,6 +2,47 @@
 :toc:
 :sectnums:
 
+== Parc matériel disponible
+
+Relevé le 30/07/2026 : le parc de test dépasse largement ce que le plan initial prévoyait (un second exemplaire, pour XigmaNAS). Sept unités disponibles :
+
+[cols="2,2,3", options="header"]
+|===
+|Modèle |Plateforme |Statut de test
+
+|DH4300
+|ARM (Rockchip RK3576)
+|Hors périmètre (voir `catalogue-nas-ugreen.adoc` — pas de support FreeBSD).
+
+|DXP2800 ×2
+|Intel N100
+|Unité de test principale (chip LED `0xc5b2`, `8086:54a3`) ; second exemplaire identique, non encore testé.
+
+|DXP4800 Plus
+|Intel Pentium Gold 8505
+|Non testé.
+
+|DXP4800 Pro
+|Intel Core i3-1315U
+|Non testé.
+
+|DXP8800 Plus
+|Intel Core i5-1235U
+|Non testé.
+
+|DXP2800 GT
+|AMD Ryzen Embedded R2514
+|Non testé.
+
+|DXP4800 GT
+|AMD Ryzen Embedded R2514
+|Non testé.
+|===
+
+Conséquence directe pour l'investigation en cours (registre de confirmation `0x80` renvoyant `0x02` au lieu de `1`, voir `protocol-i2c-leds.adoc`) : ce parc permet de départager si l'anomalie est propre à l'exemplaire testé, au modèle DXP2800, à la famille Intel, ou générale à toute la gamme — y compris sur les deux variantes GT (AMD), directement comparables au signalement de l'issue amont #111 obtenu sur un DXP4800GT.
+
+Conséquence pour le sprint 5 (généralisation multi-modèles) : ce parc permet de sauter directement à une validation multi-modèles bien plus large que ce que le plan anticipait à ce stade — à condition que le cœur du pilote soit stabilisé sur le DXP2800 d'abord, conformément à la stratégie déjà retenue.
+
 Ce document consigne, modèle par modèle, les relevés matériels effectués physiquement (numéros de puce, adresses de bus, pilotes Linux déjà chargés par UGOS). Contrairement à la documentation UGREEN officielle, ces informations sont volontairement précises et vérifiables : chaque ligne provient d'une observation directe (photo de console, sortie de commande), pas d'une supposition.
 
 == DXP2800
