@@ -29,7 +29,12 @@
 set -eu
 
 echo "[restore] chargement des modules SMBus/i2c"
-modprobe i2c-i801 i2c-dev
+# Deux appels séparés, et non `modprobe i2c-i801 i2c-dev` en une seule
+# commande : constaté sur le terrain le 30/07/2026, cette forme groupée
+# retourne un succès (code 0) sans charger i2c-dev, laissant i2c-i801
+# seul attaché — /dev/i2c-* reste absent sans message d'erreur.
+modprobe i2c-i801
+modprobe i2c-dev
 
 echo "[restore] pare-feu par défaut de l'image live : vidé"
 # nftables rejette le port 22 par défaut, avec un message trompeur côté
