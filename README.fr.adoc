@@ -28,7 +28,7 @@ Le développement et les tests sont effectués sur un *UGREEN NASync DXP2800* (I
 
 Le sprint 0 est terminé : le dépôt est public, le protocole SMBus du contrôleur LED est intégralement rétro-documenté, et le contact est établi avec l'équipe zVault (https://github.com/zvaultio/Community/issues/37[Community#37]).
 
-Un premier utilitaire en espace utilisateur (`src/cli/ugreen-led-ctl`) existe et compile, *mais n'a jamais été exécuté sur matériel réel*. Le valider sur un DXP2800 sous FreeBSD est la prochaine étape (sprint 3.3). D'ici là, toute affirmation sur le protocole contenue dans ce dépôt est documentée mais non vérifiée. Voir link:docs/journal.adoc[] pour le suivi détaillé.
+Un premier utilitaire en espace utilisateur (`src/cli/ugreen-led-ctl`) existe, compile, et a désormais été mis à l'épreuve sur un DXP2800 réel (sous Linux, comme banc d'essai avant FreeBSD). *La lecture d'état est validée avec certitude* : une trame réelle de 11 octets a été relevée sur la puce et sa somme de contrôle vérifiée de façon indépendante, au bit près. *L'écriture, elle, ne fonctionne pas encore* : ni notre code, ni l'outil de référence amont original, compilé et exécuté sur le même exemplaire, ne parviennent à faire tenir une écriture — un mystère non résolu à ce stade, recoupé avec un signalement similaire sur un matériel différent (plateforme AMD) dans le suivi des problèmes du projet amont. Voir link:docs/journal.adoc[] et link:docs/protocol-i2c-leds.adoc[] pour le récit complet. Valider le pilote sous FreeBSD/zVault reste la prochaine étape (sprint 3.3).
 
 [NOTE]
 ====

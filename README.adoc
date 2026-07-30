@@ -28,7 +28,7 @@ Development and testing are carried out on a *UGREEN NASync DXP2800* (Intel N100
 
 Sprint 0 is complete: the repository is public, the SMBus protocol of the LED controller is fully reverse-documented, and contact has been established with the zVault team (https://github.com/zvaultio/Community/issues/37[Community#37]).
 
-A first userland utility (`src/cli/ugreen-led-ctl`) now exists and builds, *but has never run on real hardware*. Validating it on a DXP2800 under FreeBSD is the next milestone (sprint 3.3). Until that happens, treat every protocol claim in this repository as documented-but-unverified. See link:docs/journal.adoc[] for the detailed log.
+A first userland utility (`src/cli/ugreen-led-ctl`) exists, builds, and has now been exercised on a real DXP2800 (under Linux, as a proving ground ahead of FreeBSD). *Reading LED state is validated with certainty*: a real 11-byte frame was captured from the chip and its checksum verified independently, byte for byte. *Writing is not yet working*: neither our own code nor the original upstream reference tool, compiled and run on the same unit, can make a write stick — a mystery not yet resolved, cross-referenced with a matching report on different (AMD-based) hardware in the upstream project's issue tracker. See link:docs/journal.adoc[] and link:docs/protocol-i2c-leds.adoc[] for the full account. Validating the driver under FreeBSD/zVault remains the next milestone (sprint 3.3).
 
 [NOTE]
 ====

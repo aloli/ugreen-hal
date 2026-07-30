@@ -102,6 +102,49 @@ Questions:
 Philippe
 ----
 
+== `miskcoo/ugreen_leds_controller` — commentaire pour l'issue #111
+
+Contexte : lors de la première validation matérielle du protocole (30/07/2026, voir `docs/journal.adoc` et `docs/protocol-i2c-leds.adoc`), la lecture d'état a été confirmée avec certitude (somme de contrôle vérifiée sur une trame réelle), mais l'écriture reste sans effet — y compris avec l'outil de référence original compilé et exécuté directement sur notre exemplaire. Le registre de confirmation (`0x80`) renvoie systématiquement `0x02`, jamais le `1` attendu. Recherche dans les issues du dépôt amont : https://github.com/miskcoo/ugreen_leds_controller/issues/111 rapporte exactement la même valeur sur un *DXP4800GT* (plateforme AMD), attribuée par le rapporteur à une différence de firmware propre au GT.
+
+*Ce qui rend notre relevé utile à publier* : notre exemplaire est un *DXP2800* (Intel N100) — un des modèles sur lesquels l'outil a justement été validé à l'origine, pas une variante GT. Si la même anomalie s'y produit, l'hypothèse « spécifique au firmware GT » de cette issue est probablement incomplète ; le phénomène semble plus large que ce qu'elle suppose.
+
+[source]
+----
+Seeing the exact same confirmation register value (0x80 == 2, never 1)
+on a different, non-GT unit: a DXP2800 (Intel N100), one of the models
+this tool was originally reverse-engineered against — not an AMD/GT
+variant.
+
+Read is solid: captured a real 11-byte frame from the chip and verified
+its checksum independently, matches the documented format exactly.
+
+Write is not: `power -off` runs with no error but no visible effect;
+`power -on` reports "failed to change status!". `is_last_modification_
+successful()` reads register 0x80 and consistently gets 2, not 1 -
+matching this issue exactly, on hardware this issue's own theory
+(GT-specific EC firmware) wouldn't predict.
+
+Ruled out before concluding this is chip-side: two different Python
+SMBus libraries (classic `smbus` and `smbus2`) fail identically; the
+write payload matches `_change_status()`/`compute_checksum()` byte for
+byte; no `led_ugreen`-style kernel module is loaded; no LED class device
+for this controller appears under /sys/class/leds/ (only the NIC and
+keyboard LEDs do). This was tested under a live Linux environment
+(SystemRescue) that has never talked to this controller from any host
+before — if that matters, it might be worth documenting as a
+prerequisite.
+
+Happy to run further tests if useful — have a few more UGREEN units
+available (details: https://github.com/aloli/ugreen-hal, an
+in-progress FreeBSD port of the LED/GPIO/hwmon hardware for this NAS
+range).
+----
+
+[NOTE]
+====
+Ce brouillon vous décrit comme titulaire du dépôt et lie vers `ugreen-hal` par transparence sur le projet en cours — à ajuster si vous préférez ne pas mentionner ce lien. Publication laissée à votre discrétion, comme pour les autres messages de ce document.
+====
+
 == Suivi
 
 [cols="2,1,3", options="header"]
@@ -115,4 +158,8 @@ Philippe
 |XigmaNAS (SourceForge)
 |Différé
 |À envoyer après zVault, une fois le pilote validé sur matériel réel.
+
+|`miskcoo/ugreen_leds_controller` (issue #111)
+|Brouillon prêt (30/07/2026)
+|Relevé croisé Intel/AMD sur l'anomalie du registre de confirmation. Non publié — à la discrétion de l'utilisateur.
 |===
