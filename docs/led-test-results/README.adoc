@@ -1,0 +1,13 @@
+= Résultats bruts — campagne de test LED multi-modèles
+:toc:
+
+Ce dossier reçoit la sortie brute et horodatée de chaque exécution du protocole de test LED (`scripts/nas-led-test.py`, ou son équivalent compilé `scripts/led-probe/led_probe`) sur une unité du parc — voir `docs/protocol-i2c-leds.adoc`, section « Protocole de test comparatif multi-modèles », pour le contexte et le tableau de synthèse à tenir à jour.
+
+Un fichier par exécution, nommé `<nom-court>-<horodatage>.txt`, généré automatiquement par `scripts/nas-led-test.cr` :
+
+[source,shell]
+----
+crystal run scripts/nas-led-test.cr -- dxp2800a
+----
+
+Ces fichiers sont la donnée brute — la source. Le tableau de `protocol-i2c-leds.adoc` en est le résumé lisible ; en cas de divergence entre les deux, le fichier brut fait foi.

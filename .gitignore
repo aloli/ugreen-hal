@@ -23,6 +23,20 @@ src/cli/*.o
 # dans scripts/systemrescue-restore.sh.
 scripts/nas-ssh/id_ed25519
 
+# Correspondance nom court -> IP du parc de test (scripts/nas-connect.cr).
+# Propre à cette machine et à cette campagne : l'IP change à chaque
+# redémarrage d'une unité (SystemRescue est un environnement live, sans
+# état persistant). Un fichier committé serait faux dès le lendemain.
+scripts/nas-hosts.json
+
+# Artefacts locaux du banc QEMU Linux (compilation de scripts/led-probe/) :
+# mêmes raisons que pour le banc QEMU FreeBSD ci-dessus.
+scripts/led-probe/qemu/images/
+scripts/led-probe/qemu/run/
+scripts/led-probe/qemu/logs/
+scripts/led-probe/qemu/ssh/
+scripts/led-probe/led_probe
+
 # Paquets de firmware UGOS téléchargés chez UGREEN : 1,75 Go par version, et
 # surtout du code propriétaire qui n'a pas à être redistribué depuis un dépôt
 # public sous licence BSD. Analysés localement, jamais versionnés — les
