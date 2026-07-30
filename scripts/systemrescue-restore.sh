@@ -67,6 +67,16 @@ else
 fi
 
 echo
-echo "[restore] terminé. Connexion depuis le Mac :"
-echo "  ssh -i scripts/nas-ssh/id_ed25519 root@<IP-du-NAS>"
-echo "  (IP visible ci-dessus dans le scan, ou via : ip -br a)"
+echo "[restore] terminé."
+
+# Adresse IPv4 de portée globale (exclut loopback et link-local sans
+# avoir à connaître le nom de l'interface, qui peut varier).
+nas_ip="$(ip -4 -o addr show scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)"
+
+if [ -n "${nas_ip}" ]; then
+  echo "  Adresse de ce NAS : ${nas_ip}"
+  echo "  Connexion depuis le Mac, quel que soit le dossier courant :"
+  echo "    ssh -i /Users/philippe/prod-aloli/ugreen-hal/scripts/nas-ssh/id_ed25519 root@${nas_ip}"
+else
+  echo "  Adresse IP non détectée automatiquement — voir : ip -br a"
+fi
