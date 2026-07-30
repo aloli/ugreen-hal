@@ -11,7 +11,32 @@ Fiche à dérouler devant le NAS, et à remplir au fur et à mesure. Chaque sect
 *SystemRescue est un environnement live, en RAM.* Tout ce qui a été installé ou configuré pendant la dernière séance (paquet `i2c-tools`, modules chargés, mot de passe root, règles `nftables` vidées) est perdu au moindre redémarrage du NAS. Seuls les réglages du *BIOS* (watchdog désactivé, Secure Boot désactivé) sont persistants — pas besoin d'y retourner.
 ====
 
-Séquence complète à rejouer au prochain démarrage, dans l'ordre. Acquis de la dernière séance, pour mémoire : réseau en service via le pont GL.iNet Flint (voir `docs/reseau-banc.adoc`), contrôleur SMBus confirmé `8086:54a3` sur le bus `i2c-11`, adresse `0x3a` confirmée par sonde directe.
+=== Voie rapide : un seul script
+
+Une fois SystemRescue démarré et le câble branché sur le Flint (le réseau s'obtient par DHCP sans configuration manuelle), tout ce qui suit peut se rejouer en une commande :
+
+[source,shell]
+----
+curl -sL https://raw.githubusercontent.com/aloli/ugreen-hal/development/scripts/systemrescue-restore.sh | sh
+----
+
+Le script (`scripts/systemrescue-restore.sh`) charge les modules SMBus/i2c, vide le pare-feu par défaut, installe une clé SSH *dédiée* à ce banc (pas de mot de passe root — voir l'en-tête du script pour la raison, un script tuyauté ne peut pas répondre à un prompt interactif), installe `i2c-tools`, puis détecte automatiquement le bus SMBus et scanne l'adresse `0x3a`.
+
+Connexion ensuite depuis le Mac, avec la clé dédiée :
+
+[source,shell]
+----
+ssh -i scripts/nas-ssh/id_ed25519 root@<IP-du-NAS>
+----
+
+[NOTE]
+====
+Ce chemin suppose le fichier poussé sur `origin/development`. S'il n'est pas encore disponible en ligne, dérouler la séquence manuelle ci-dessous.
+====
+
+=== Voie manuelle (détail de ce que fait le script)
+
+Acquis de la dernière séance, pour mémoire : réseau en service via le pont GL.iNet Flint (voir `docs/reseau-banc.adoc`), contrôleur SMBus confirmé `8086:54a3` sur le bus `i2c-11`, adresse `0x3a` confirmée par sonde directe.
 
 [source,shell]
 ----

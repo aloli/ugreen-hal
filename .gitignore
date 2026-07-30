@@ -18,6 +18,11 @@ qemu/build/
 src/cli/ugreen-led-ctl
 src/cli/*.o
 
+# Clé privée du banc NAS physique (dédiée, distincte de la clé
+# personnelle) — seule la clé publique doit être versionnée, embarquée
+# dans scripts/systemrescue-restore.sh.
+scripts/nas-ssh/id_ed25519
+
 # Paquets de firmware UGOS téléchargés chez UGREEN : 1,75 Go par version, et
 # surtout du code propriétaire qui n'a pas à être redistribué depuis un dépôt
 # public sous licence BSD. Analysés localement, jamais versionnés — les
